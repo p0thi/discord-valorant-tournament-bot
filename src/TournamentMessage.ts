@@ -6,6 +6,7 @@ import {
   MessageActionRow,
   MessageButton,
   MessageEmbed,
+  MessageEmbedThumbnail,
   MessageOptions,
   MessageSelectMenu,
   TextChannel,
@@ -191,7 +192,7 @@ export default class TournamentMessage {
     const embed1 = {
       title: this.tournament.name,
       author: {
-        name: "Pothis Valorant Tournament Bot",
+        name: "Valorant Tournament",
       },
       description: `${this.tournament.description || ""}`,
       color: "#00e1ff",
@@ -261,13 +262,13 @@ export default class TournamentMessage {
       });
 
       joinGroupMenu
-        .setPlaceholder("Select your favourite premade Group")
+        .setPlaceholder("Select your favourite premade group")
         .setMaxValues(5)
         .setMinValues(1)
         .addOptions([
           {
             label: "NONE",
-            description: "Select, if you don't want to be in a group at all",
+            description: "Select, if you don't want to be in a group at all.",
             value: "none",
           },
           ...participants
@@ -302,8 +303,7 @@ export default class TournamentMessage {
 
     const embed1 = {
       title: `${populatedTournament.name} - Premade Groups`,
-      description:
-        "Groups of players, who want to play in one team.\nYou can find the meaning of the color of the circles below.",
+      description: "Groups of players, who want to play in one team.",
       color: "#008ea1",
       fields: [
         {
@@ -316,7 +316,7 @@ export default class TournamentMessage {
           name: `${PremateStatusEmoji.get(PremadeStatus.PENDIG)} Pending`,
           inline: false,
           value:
-            "Player needs to accept to play in that group by chosing at least one player of that group as a premade.",
+            "Player needs to accept to play in that group, by chosing at least one player of that group as a premade.",
         },
         {
           name: `${PremateStatusEmoji.get(
@@ -330,9 +330,9 @@ export default class TournamentMessage {
           inline: false,
           value: "None of the players selected premades are in this group.",
         },
-        { name: "\u200b", value: "\u200b" },
+        // { name: "\u200b", value: "\u200b" },
         {
-          name: "Players who chose to not being able to be added to a premade group.",
+          name: "Players who chose to stay out of any premade groups.",
           value:
             populatedTournament.premades
               .filter((p) => !p.target)
