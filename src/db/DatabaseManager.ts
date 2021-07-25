@@ -22,14 +22,13 @@ export default class DatabaseManager {
   }
 
   async connect() {
-    this.conn = await mongoose.connect(
-      `mongodb://${process.env.MONGO_URL}:${process.env.MONGO_PORT ?? 44839}/${
-        this.path
-      }`,
-      {
-        useNewUrlParser: true,
-      }
-    );
+    const url = `mongodb://${process.env.MONGO_URL}:${
+      process.env.MONGO_PORT ?? 44839
+    }/${this.path}`;
+    console.log("DB connecting to:", url);
+    this.conn = await mongoose.connect(url, {
+      useNewUrlParser: true,
+    });
   }
 
   async getUser(cond: Object, content?: Object): Promise<IUser> {
