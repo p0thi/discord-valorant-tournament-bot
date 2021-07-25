@@ -25,7 +25,7 @@ export default class MessageHandler {
     this.bot = bot;
   }
   start(): void {
-    this.bot.on("messageCreate", (msg) => this.handle(msg));
+    // this.bot.on("messageCreate", (msg) => this.handle(msg));
   }
 
   private async handle(msg: Message) {
