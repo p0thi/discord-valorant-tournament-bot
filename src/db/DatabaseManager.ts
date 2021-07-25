@@ -23,7 +23,9 @@ export default class DatabaseManager {
 
   async connect() {
     this.conn = await mongoose.connect(
-      `mongodb://${process.env.MONGO_URL}/${this.path}`,
+      `mongodb://${process.env.MONGO_URL}:${process.env.MONGO_PORT ?? 44839}/${
+        this.path
+      }`,
       {
         useNewUrlParser: true,
       }
