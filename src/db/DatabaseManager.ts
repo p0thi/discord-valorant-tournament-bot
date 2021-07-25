@@ -23,7 +23,7 @@ export default class DatabaseManager {
 
   async connect() {
     const url = `mongodb://${process.env.MONGO_URL}:${
-      process.env.MONGO_PORT ?? 44839
+      process.env.MONGO_PORT ?? 27017
     }/${this.path}`;
     console.log("DB connecting to:", url);
     this.conn = await mongoose.connect(url, {
