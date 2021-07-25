@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "outDir": "./dist/",
+    "moduleResolution": "node",
+    "target": "ES2021",
+    "lib": ["es2020", "dom"],
+    "sourceMap": true,
+    "types": [
+      // add node as an option
+      "node",
+      "reflect-metadata"
+    ],
+    "typeRoots": [
+      // add path to @types
+      "node_modules/@types"
+    ],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  },
+  "exclude": ["node_modules"]
+}
