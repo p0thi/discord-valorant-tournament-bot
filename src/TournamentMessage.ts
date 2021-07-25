@@ -203,14 +203,16 @@ export default class TournamentMessage {
         {
           name: `Participants: **${
             this.tournament.participants.length
-          }** *(Average Elo: ${Math.ceil(
-            participants
-              .map((p) => {
-                const elo = p[`${this.tournament.region}_account`].elo || 0;
-                return elo > 0 ? elo : 750;
-              })
-              .reduce((a, b) => a + b, 0) / participants.length
-          )})*`,
+          }** *(Average Elo: ${
+            Math.ceil(
+              participants
+                .map((p) => {
+                  const elo = p[`${this.tournament.region}_account`].elo || 0;
+                  return elo > 0 ? elo : 750;
+                })
+                .reduce((a, b) => a + b, 0) / participants.length
+            ) || 0
+          })*`,
           value:
             participants.length > 0
               ? "\n" +

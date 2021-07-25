@@ -95,5 +95,9 @@ export default class GuildManager {
     });
   }
 
-  private onGuildDelete(guild: Guild): void {}
+  private onGuildDelete(guild: Guild): void {
+    dbManager
+      .getGuild({ discordId: guild.id })
+      .then((dbGuild) => dbGuild.delete());
+  }
 }

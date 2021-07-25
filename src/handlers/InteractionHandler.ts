@@ -67,7 +67,7 @@ export default class InteractionHandler {
 
             if (!userValoAccountInfo) {
               interaction.followUp({
-                content: `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!\nUse the /link command to do so.`,
+                content: `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!\nUse the */link* command to do so.`,
                 ephemeral: true,
               });
               return;
