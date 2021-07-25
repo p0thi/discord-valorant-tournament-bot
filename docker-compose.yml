@@ -7,6 +7,13 @@ services:
     build: .
     ports:
       - "3000:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 10m
+        max-file: "3"
+        labels: "production_status"
+        env: "os"
     links:
       - mongo
     depends_on:
