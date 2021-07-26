@@ -14,7 +14,7 @@ import {
 import { MessageButtonStyles } from "discord.js/typings/enums";
 import DatabaseManager from "./db/DatabaseManager";
 import { ITournamentSetting } from "./db/interfaces/IGuild";
-import { IValoAccountInfo } from "./db/interfaces/IUser";
+import IUser, { IValoAccountInfo } from "./db/interfaces/IUser";
 import TournamentManager, {
   PremadeStatus,
   PremateStatusEmoji,
@@ -208,7 +208,7 @@ export default class TournamentMessage {
             Math.ceil(
               participants
                 .map((p) => {
-                  const elo = p[`${this.tournament.region}_account`].elo || 0;
+                  const elo = this.getDbUserMaxElo(p)?.elo || 0;
                   return elo > 0 ? elo : 750;
                 })
                 .reduce((a, b) => a + b, 0) / participants.length
@@ -219,15 +219,18 @@ export default class TournamentMessage {
               ? "\n" +
                 participantMembers
                   .map((participant, index) => {
-                    const valoAccountInfo = participants.find(
+                    const user = participants.find(
                       (p) => p.discordId === index
-                    )[`${this.tournament.region}_account`] as IValoAccountInfo;
+                    );
+                    const valoAccountInfo = this.getDbUserMaxElo(
+                      user
+                    ) as IValoAccountInfo;
                     return ` <@${participant.id}>(<:${
                       emojis
                         .find((e) => e?.tier === valoAccountInfo.currenttier)
                         .getValoEmoji(this.guild.client).identifier
                     }>${
-                      valoAccountInfo.elo > 0
+                      valoAccountInfo?.elo > 0
                         ? valoAccountInfo.elo
                         : "Estimated: 750"
                     })`;
@@ -342,13 +345,14 @@ export default class TournamentMessage {
       ],
     };
 
-    const participantValorantAccounts = participants.map(
-      (p) => p[`${populatedTournament.region}_account`] as IValoAccountInfo
+    const participantHighestValorantAccounts = participants.map(
+      (p) => this.getDbUserMaxElo(p) as IValoAccountInfo
     );
 
     const allParticipantsAverageElo =
-      participantValorantAccounts.map((p) => p.elo).reduce((a, b) => a + b, 0) /
-      participantValorantAccounts.length;
+      participantHighestValorantAccounts
+        .map((p) => p.elo)
+        .reduce((a, b) => a + b, 0) / participantHighestValorantAccounts.length;
 
     const groupEmbeds = (await this.parentManager.getPremadeGroups()).map(
       (g, i) => {
@@ -362,9 +366,8 @@ export default class TournamentMessage {
         const groupAverageElo = Math.ceil(
           groupParticipants
             .map((p) => {
-              const elo = p[`${populatedTournament.region}_account`]
-                .elo as number;
-              return elo > 0 ? elo : 750;
+              const maxElo = this.getDbUserMaxElo(p).elo as number;
+              return maxElo > 0 ? maxElo : 750;
             })
             .reduce((a, c) => a + c, 0) / availablePremades.length
         );
@@ -421,10 +424,28 @@ export default class TournamentMessage {
         };
       }
     );
+    console.log("done");
 
     return {
       embeds: [embed1, ...groupEmbeds],
       components: [row1, row2],
     } as MessageOptions;
+  }
+
+  getDbUserMaxElo(dbUser: IUser): IValoAccountInfo {
+    let currentResult;
+
+    for (const region of ["na", "eu", "kr", "ap"]) {
+      if (`${region}_account` in dbUser) {
+        const currentValoAccount = dbUser[`${region}_account`];
+        if (
+          !currentResult ||
+          (currentValoAccount && currentValoAccount.elo > currentResult.elo)
+        )
+          currentResult = currentValoAccount;
+      }
+    }
+
+    return currentResult;
   }
 }
