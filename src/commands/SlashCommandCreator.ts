@@ -4,6 +4,7 @@ import {
   Guild,
   MessageActionRow,
   MessageButton,
+  MessageEmbed,
   TextChannel,
 } from "discord.js";
 import ValorantApi from "../api/ValorantApi";
@@ -264,6 +265,65 @@ export default abstract class SlashCommandCreator {
               ephemeral: true,
             });
           });
+      },
+    } as CustomApplicationCommand,
+    {
+      name: "help",
+      description: "Shows help message",
+      defaultPermission: true,
+      // options: [
+      //   {
+      //     name: "region",
+      //     description: "Your valoran accounts server region",
+      //     type: "STRING",
+      //     required: true,
+      //     choices: [
+      //       { name: "Europe", value: "eu" },
+      //       { name: "Asia Pacific", value: "ap" },
+      //       { name: "North America", value: "na" },
+      //       { name: "Korea", value: "kr" },
+      //     ],
+      //   },
+      // ],
+      async handler(interaction: CommandInteraction) {
+        interaction.reply({
+          ephemeral: true,
+          embeds: [
+            {
+              title: "All commands and a description",
+              fields: [
+                {
+                  name: "GLOBAL COMMANDS:",
+                  value: "\u200b",
+                },
+                {
+                  name: "/link",
+                  value:
+                    "Tell the bot your valo account. it automatically detects the server region of that account.",
+                },
+                {
+                  name: "/refresh",
+                  value:
+                    "Refreshes your Valorant account info for a region (eg rank).",
+                },
+                {
+                  name: "SERVER COMMANDS:",
+                  value: "\u200b",
+                },
+                {
+                  name: "/tournament",
+                  value:
+                    "Needs **MOD** permissions.\nCreate/delete/edit tournament in the current text channel.",
+                },
+                {
+                  name: "/permission",
+                  value:
+                    "Needs **ADMIN** permissions.\nGrant/revoke the MOD or ADMIN permissions to a discord group (not inclusive: roles with ADMIN permissions do not automatically have MOD permissions and should be granted both).",
+                },
+              ],
+            } as MessageEmbed,
+          ],
+        });
       },
     } as CustomApplicationCommand,
   ];
