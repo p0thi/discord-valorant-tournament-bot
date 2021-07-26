@@ -424,7 +424,6 @@ export default class TournamentMessage {
         };
       }
     );
-    console.log("done");
 
     return {
       embeds: [embed1, ...groupEmbeds],
