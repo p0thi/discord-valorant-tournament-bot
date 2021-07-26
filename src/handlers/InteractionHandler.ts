@@ -56,15 +56,18 @@ export default class InteractionHandler {
       switch (command) {
         case "join_tournament":
           {
+            console.log("1");
             if (tournament.participants.indexOf(dbUser.id) !== -1) {
               interaction.followUp(
                 ":exclamation: You're already in this tournament!"
               );
               return;
             }
+            console.log("2");
 
             const userValoAccountInfo = dbUser[`${tournament.region}_account`];
 
+            console.log("3", userValoAccountInfo);
             if (!userValoAccountInfo) {
               interaction.followUp({
                 content: `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!\nUse the */link* command to do so.`,
@@ -72,6 +75,10 @@ export default class InteractionHandler {
               });
               return;
             }
+
+            console.log("4");
+
+            console.log(dbUser);
 
             tournament.participants.addToSet(dbUser);
             await tournament.ownerDocument().save();

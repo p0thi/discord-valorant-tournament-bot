@@ -52,6 +52,7 @@ export default abstract class SlashCommandCreator {
           .getUser(splitName[0], splitName[1])
           .then(async (user) => {
             if (user) {
+              console.log(user);
               let valoAccountInfo = dbUser[
                 `${user.data.region}_account`
               ] as IValoAccountInfo;
@@ -94,8 +95,8 @@ export default abstract class SlashCommandCreator {
                 console.log("sending reply");
                 await interaction.followUp({
                   content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
-                    user.data.name
-                  }#${user.data.tag}). Do you want to replace it?`,
+                    valoAccountInfo.name
+                  }#${valoAccountInfo.tag}). Do you want to replace it?`,
                   ephemeral: true,
                   components: [row],
                 });
@@ -162,6 +163,8 @@ export default abstract class SlashCommandCreator {
                   user.data.region
                 );
 
+                console.log(eloData);
+
                 if (eloData) {
                   valoAccountInfo.elo = eloData.elo;
                   valoAccountInfo.currenttier = eloData.currenttier;
@@ -170,6 +173,12 @@ export default abstract class SlashCommandCreator {
                   valoAccountInfo.name = eloData.name;
                   valoAccountInfo.tag = eloData.tag;
                   // dbUser[`${user.data.region}_account`] = valoAccountInfo;
+                } else {
+                  valoAccountInfo.elo = 0;
+                  valoAccountInfo.currenttier = 10;
+                  valoAccountInfo.currenttierpatched = "Estimated: Silver 2";
+                  valoAccountInfo.name = user.data.name;
+                  valoAccountInfo.tag = user.data.tag;
                 }
 
                 await dbUser.save();
