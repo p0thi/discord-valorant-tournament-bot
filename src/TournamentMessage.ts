@@ -388,8 +388,8 @@ export default class TournamentMessage {
           title: `Group ${i + 1}`,
           description: `Size: **${
             availablePremades.length
-          }**\nAverage Elo of accepted players: **${groupAverageElo}** \`(${Math.abs(
-            groupAverageElo - allParticipantsAverageElo
+          }**\nAverage Elo of accepted players: **${groupAverageElo}** \`(${Math.ceil(
+            Math.abs(groupAverageElo - allParticipantsAverageElo)
           )} ${
             groupAverageElo >= allParticipantsAverageElo ? "Above" : "Below"
           } average)\``,
