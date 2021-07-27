@@ -108,7 +108,6 @@ export default class TournamentMessage {
       this.tournament.messageIds = result.map((m) => m.id);
       await this.tournament.ownerDocument().save();
     }
-    console.log(this.tournament.messageIds);
     this.messages = result as messagesArray;
   }
 
@@ -264,6 +263,9 @@ export default class TournamentMessage {
         user: participants.map((p) => p.discordId),
       });
 
+      const labelMaxLength = 25;
+      const descriptionMaxLength = 50;
+
       joinGroupMenu
         .setPlaceholder("Select your favourite premade group")
         .setMaxValues(5)
@@ -280,10 +282,20 @@ export default class TournamentMessage {
               const dbValoAccount = participant[
                 `${this.tournament.region}_account`
               ] as IValoAccountInfo;
+              let label = `${discordMember.displayName}#${discordMember.user.discriminator}`;
+              label =
+                label.length > labelMaxLength
+                  ? label.substring(0, labelMaxLength - 1) + "…"
+                  : label;
 
+              let description = `${dbValoAccount.name}#${dbValoAccount.tag} | ${dbValoAccount.currenttierpatched}`;
+              description =
+                description.length > descriptionMaxLength
+                  ? description.substring(0, descriptionMaxLength - 1) + "…"
+                  : description;
               return {
-                label: `${discordMember.displayName}#${discordMember.user.discriminator}`,
-                description: `${dbValoAccount.name}#${dbValoAccount.tag} | ${dbValoAccount.currenttierpatched}`,
+                label,
+                description,
                 value: discordMember.id,
               };
             })
