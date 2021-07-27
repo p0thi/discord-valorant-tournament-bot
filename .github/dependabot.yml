@@ -10,6 +10,9 @@ updates:
     commit-message:
       prefix: "Dependency"
       include: "scope"
+    allowed_updates:
+      - match:
+          update_type: "security"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -20,4 +23,3 @@ updates:
     commit-message:
       prefix: "Dependency"
       include: "scope"
-
