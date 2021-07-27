@@ -1,69 +1,151 @@
 import {
   AwaitMessagesOptions,
   ButtonInteraction,
+  DMChannel,
+  EmbedField,
+  InteractionCollector,
   Message,
   MessageActionRow,
   MessageButton,
+  MessageComponentInteraction,
   MessageEmbed,
   MessageOptions,
   MessagePayload,
   MessageSelectMenu,
   SelectMenuInteraction,
+  TextChannel,
+  User,
   WebhookMessageOptions,
 } from "discord.js";
 import {
   InteractionResponseTypes,
   MessageComponentTypes,
 } from "discord.js/typings/enums";
+import ValorantApi, {
+  LinkUserResponseTypes,
+  RefreshUserResponseTypes,
+} from "./api/ValorantApi";
+import DatabaseManager from "./db/DatabaseManager";
+import { v1 as uuidv1 } from "uuid";
 
 import log from "./util/log";
+import { IValoAccountInfo } from "./db/interfaces/IUser";
 
-const activeConversations = {};
+const api = ValorantApi.getInstatnce();
+const dbManager = DatabaseManager.getInstance();
 
 export default class Conversation {
-  triggerMessage: Message;
+  static activeConversations: Map<string, Conversation> = new Map();
+  static helpMessage = {
+    embeds: [
+      {
+        title: "This is how I can help you:",
+        description:
+          "Just write one of the words below, or select the action from the drop down menu to start a conversation with me.\nI will then lead you through the process... :blush:\n\u200b",
+        fields: [
+          {
+            name: "link",
+            value: "Lets you link a valorant account to your discord account.",
+          },
+          {
+            name: "refresh",
+            value:
+              "Refreshes your valorant account information (e.g. rank, elo, ...) for a selectable server region.",
+          },
+        ],
+      },
+    ],
+    components: [
+      new MessageActionRow().addComponents([
+        new MessageSelectMenu()
+          .setCustomId("dm-help-selector")
+          .setPlaceholder("Select the task you want to solve")
+          .setMaxValues(1)
+          .addOptions([
+            {
+              label: "Link",
+              description: "Link your valorant account to your discord account",
+              value: "link",
+            },
+            {
+              label: "Refresh",
+              description: "Refresh valorant account info",
+              value: "refresh",
+            },
+          ]),
+      ]),
+    ],
+  } as MessageOptions;
+  author: User;
+  channel: DMChannel;
   actionStack: ConversationAction[];
   ttl: number;
-  onSuccess: (Conversation) => void;
-  onError: (Conversation) => void;
+  onSuccess: (Conversation: Conversation) => Promise<boolean>;
+  onError: (Conversation: Conversation) => Promise<void>;
 
+  private buttonCollector: InteractionCollector<MessageComponentInteraction>;
   private lastInteraction: Date;
   private timeout: NodeJS.Timeout;
   private confirmed: boolean = false;
+  private _deleted = false;
+  public get deleted() {
+    return this._deleted;
+  }
+
+  private messageComponentInteractions: MessageComponentInteraction[] = [];
 
   constructor() {}
 
   static createConversation(
-    msg: Message,
-    onSucc: (Conversation) => void,
-    onErr: (Conversation) => void,
+    channel: DMChannel,
+    author: User,
+    onSucc: (Conversation: Conversation) => Promise<boolean>,
+    onErr: (Conversation: Conversation) => Promise<void>,
     ttl = 600000
   ): Conversation {
-    if (activeConversations[msg.author.id]) {
-      onErr(this);
+    if (Conversation.activeConversations.has(author.id)) {
+      const conversation = Conversation.activeConversations.get(author.id);
+      onErr(conversation);
       return undefined;
     }
-    if (msg.channel.type !== "DM") {
-      onErr(this);
+    if (channel.type !== "DM") {
+      onErr(undefined);
       return undefined;
     }
 
     const conv = new Conversation();
 
-    activeConversations[msg.author.id] = conv;
+    Conversation.activeConversations.set(author.id, conv);
 
-    conv.triggerMessage = msg;
+    conv.channel = channel;
+    conv.author = author;
     conv.onSuccess = onSucc;
     conv.onError = onErr;
     conv.ttl = ttl;
+    conv.buttonCollector = channel.createMessageComponentCollector({
+      filter: (i) => i.customId === "conversation-abort",
+      max: 1,
+    });
+    conv.buttonCollector.on("collect", (component) => {
+      if (component.customId === "conversation-abort") {
+        component.deferUpdate();
+        conv.abort();
+      }
+    });
 
     conv.lastInteraction = new Date();
     conv.timeout = setTimeout(() => {
-      msg.reply("The conversation timed out and has been reset. :alarm_clock:");
+      channel.send(
+        "The conversation timed out and has been reset. :alarm_clock:"
+      );
       conv.abort();
-      onErr(this);
+      onErr(conv);
     }, conv.ttl);
     return conv;
+  }
+
+  addMessageComponentInteraction(interaction: MessageComponentInteraction) {
+    this.messageComponentInteractions.push(interaction);
   }
 
   setActions(actions: ConversationAction[]): Conversation {
@@ -76,12 +158,10 @@ export default class Conversation {
         () => {
           let finalEmbed = new MessageEmbed()
             .setTitle("Summary")
-            .setDescription("Please confirm the inputs you made:")
-            .addField("\u200b", "\u200b");
+            .setDescription("Please confirm the inputs you made:\n\u200b");
 
           for (let i = 0; i < this.actionStack.length - 1; i++) {
             const item = this.actionStack[i];
-            console.log(item.title, item.result);
             finalEmbed.addField(item.title, item.result, true);
           }
 
@@ -91,7 +171,7 @@ export default class Conversation {
               .setLabel("Confirm")
               .setStyle("PRIMARY"),
             new MessageButton()
-              .setCustomId("conversation-deny")
+              .setCustomId("conversation-cancel")
               .setLabel("Cancel")
               .setStyle("DANGER"),
           ]);
@@ -104,11 +184,12 @@ export default class Conversation {
         (strToVerify) =>
           strToVerify.toLowerCase() === "confirm" ||
           strToVerify.toLowerCase() === "cancel",
-        (resultToHandle) => {
+        async (resultToHandle) => {
           if (resultToHandle.toLowerCase() === "cancel") {
             this.abort();
             this.onError(this);
           }
+          return true;
         }
       )
     );
@@ -124,9 +205,11 @@ export default class Conversation {
     return undefined;
   }
 
-  finish(): void {
+  async finish(): Promise<void> {
     this.delete();
-    this.onSuccess(this);
+    await this.onSuccess(this);
+    await this.channel.send(":white_check_mark: ");
+    this.channel.send(Conversation.helpMessage);
   }
 
   public abort(): void {
@@ -138,19 +221,31 @@ export default class Conversation {
         }
       }
     }
+    this.channel.send(
+      "The current interaction **has been aborted**. Please start a new one."
+    );
     this.delete();
+    this.channel.send(":x: ").then(() => {
+      this.channel.send(Conversation.helpMessage);
+    });
   }
 
   delete(): void {
-    activeConversations[this.triggerMessage.author.id] = undefined;
+    Conversation.activeConversations.delete(this.author.id);
     clearTimeout(this.timeout);
+    this.buttonCollector.stop();
+    this._deleted = true;
+  }
+
+  start(): void {
+    this.sendNextCallToAction();
   }
 
   async sendNextCallToAction(): Promise<void> {
     let action = this.getNextActionWithoutResult();
-    console.log("action", !!action);
     if (!action) {
-      this.finish();
+      if (!this._deleted) this.finish();
+
       return;
     }
     action.sendMessage();
@@ -170,15 +265,218 @@ export default class Conversation {
     }
     return valid;
   }
+
+  static async createLinkConversation(
+    channel: DMChannel,
+    author: User
+  ): Promise<Conversation> {
+    const dbUser = await dbManager.getUser({ discordId: author.id });
+    const conversation = Conversation.createConversation(
+      channel,
+      author,
+      (conv: Conversation) => {
+        return new Promise<boolean>(async (resolve, reject) => {
+          const [username, tag] = conv.actionStack[0].result.split("#");
+          const user = await api.getUser(username, tag);
+          const linkResult = await api.linkUser(user, dbUser);
+
+          switch (linkResult[0]) {
+            case LinkUserResponseTypes.ALREADY_LINKED:
+              conv.channel.send({
+                content: `You already have linked this account: **${user.data.name}#${user.data.tag}**\nInteraction has been aborted. Please start a new one.`,
+              });
+              resolve(false);
+              break;
+            case LinkUserResponseTypes.DIFFERENT_ACCOUNT_LINKED:
+              const overwriteId = uuidv1();
+              const abortId = uuidv1();
+
+              let valoAccountInfo = dbUser[
+                `${user.data.region}_account`
+              ] as IValoAccountInfo;
+
+              if (!valoAccountInfo) {
+                valoAccountInfo = {} as IValoAccountInfo;
+                dbUser[`${user.data.region}_account`] = valoAccountInfo;
+                await dbUser.save();
+                valoAccountInfo = dbUser[
+                  `${user.data.region}_account`
+                ] as IValoAccountInfo;
+              }
+
+              console.log(overwriteId);
+
+              let row = new MessageActionRow().addComponents([
+                new MessageButton()
+                  .setCustomId(overwriteId)
+                  .setLabel("Overwrite")
+                  .setStyle("PRIMARY"),
+                new MessageButton()
+                  .setCustomId(abortId)
+                  .setLabel("Abort")
+                  .setStyle("DANGER"),
+              ]);
+
+              console.log("sending reply");
+              await conv.channel.send({
+                content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
+                  valoAccountInfo.name
+                }#${valoAccountInfo.tag}). Do you want to replace it?`,
+                components: [row],
+              });
+
+              conv.channel
+                .createMessageComponentCollector({
+                  componentType: "BUTTON",
+                  time: 600000,
+                  filter: (i) => {
+                    const customId = i.customId;
+                    return customId === overwriteId || customId === abortId;
+                  },
+                  max: 1,
+                })
+                .on("collect", async (collected) => {
+                  console.log("Button Interaction");
+
+                  const content = collected.customId;
+
+                  if (content === overwriteId) {
+                    console.log("overwrite");
+                    await api.linkUser(user, dbUser, true);
+                    collected.reply({
+                      content: `Successfully overwrote your account with **${user.data.name}#${user.data.tag}**.`,
+                    });
+                    resolve(true);
+                  } else if (content === abortId) {
+                    console.log("abort");
+                    collected.deferUpdate();
+                    resolve(false);
+                  }
+                });
+              break;
+            case LinkUserResponseTypes.NOT_FOUND:
+              conv.channel.send({
+                content: `Could not find a Valorant account with the name **${username}#${tag}**\nInteraction has been aborted. Please start a new one.`,
+              });
+              resolve(false);
+              break;
+            case LinkUserResponseTypes.OK:
+              conv.channel.send({
+                content: `Linked **${user.data.name}#${
+                  user.data.tag
+                }** (Level ${
+                  user.data.account_level
+                }) to your discord account for the server reqion **${user.data.region.toUpperCase()}**.`,
+              });
+              resolve(true);
+              break;
+          }
+        });
+      },
+      (conv) => {
+        return undefined;
+      }
+    );
+    conversation.setActions([
+      new ConversationAction(
+        "Valo Name",
+        conversation,
+        QuestionInteractionType.MESSAGE,
+        () => ({
+          content:
+            "Please write me your valorant username plus tag (e.g. **Name#1234**)",
+        }),
+        (toVerify) => {
+          const usernameRegex = /.+#.+/g;
+          const match = toVerify.match(usernameRegex);
+          return !!match;
+        },
+        async (result, conv) => {
+          return true;
+        }
+      ),
+    ]);
+    return conversation;
+  }
+
+  static async createRefreshConversation(
+    channel: DMChannel,
+    author: User
+  ): Promise<Conversation> {
+    const dbUser = await dbManager.getUser({ discordId: author.id });
+    const conversation = Conversation.createConversation(
+      channel as DMChannel,
+      author,
+      async (conv) => {
+        const result = await api.refreshUser(
+          dbUser,
+          conv.actionStack[0].result
+        );
+
+        console.log(result);
+        if (result[0] === RefreshUserResponseTypes.OK) {
+          conv.channel.send({
+            content: `Successfully refreshed your account **${result[1].name}#${result[1].tag}**`,
+          });
+        } else if (result[0] === RefreshUserResponseTypes.NOT_LINKED) {
+          conv.channel.send({
+            content: `:x: You have not linked a valorant account for that region yet. :x:`,
+          });
+        } else {
+          conv.channel.send({
+            content: `Could not get your elo data.\nMaybe you did not play a competetive match in a long time?`,
+          });
+        }
+        return true;
+      },
+      (conv) => {
+        return undefined;
+      }
+    );
+    conversation.setActions([
+      new ConversationAction(
+        "Region",
+        conversation,
+        QuestionInteractionType.SELECT,
+        () => {
+          return {
+            content: "Please select a region",
+            components: [
+              new MessageActionRow().addComponents([
+                new MessageSelectMenu()
+                  .setCustomId("region-select-menu")
+                  .setPlaceholder("Select the region of your valorant server")
+                  .addOptions([
+                    { label: "EU", value: "eu" },
+                    { label: "NA", value: "na" },
+                    { label: "AP", value: "ap" },
+                    { label: "KR", value: "kr" },
+                  ]),
+              ]),
+            ],
+          };
+        },
+        (toverify) => {
+          return (
+            toverify === "eu" ||
+            toverify === "na" ||
+            toverify === "ap" ||
+            toverify === "kr"
+          );
+        }
+      ),
+    ]);
+    return conversation;
+  }
 }
 
 export class ConversationAction {
   title: string;
   conv: Conversation;
-  message: () => WebhookMessageOptions;
+  message: () => MessageOptions;
   revert?: () => void;
   verifyResponse: (string) => boolean;
-  onResultReceived?: (string) => void;
+  onResultReceived?: (result: string, conv: Conversation) => Promise<boolean>;
   result: string = undefined;
   interactionType: QuestionInteractionType;
 
@@ -186,9 +484,9 @@ export class ConversationAction {
     title: string,
     conv: Conversation,
     interactionType: QuestionInteractionType,
-    message: () => WebhookMessageOptions,
-    verifyResponse: (string: any) => boolean,
-    onResultReceived?: (string) => void,
+    message: () => MessageOptions,
+    verifyResponse: (string: string) => boolean,
+    onResultReceived?: (result: string, conv: Conversation) => Promise<boolean>,
     revert = () => {}
   ) {
     this.title = title;
@@ -201,25 +499,53 @@ export class ConversationAction {
   }
 
   async sendMessage(): Promise<void> {
-    const questionContent = this.message();
+    const content: MessageOptions = this.message();
 
-    console.log(this.title);
-    console.log("sendMessage", this.conv.triggerMessage.id);
-    const question = await this.conv.triggerMessage.channel.send(
-      questionContent
+    if (!content.components) {
+      content.components = [];
+    }
+    let componentRow: MessageActionRow;
+
+    const cancelPresent = content.components.find(
+      (row) =>
+        !!row.components.find((c) => c.customId === "conversation-cancel")
     );
+    if (!cancelPresent) {
+      for (const comp of content.components) {
+        if (
+          comp.components &&
+          comp.components.length > 0 &&
+          comp.components[0].type === "BUTTON"
+        ) {
+          componentRow = comp as MessageActionRow;
+        }
+      }
+      const abortConversationRow = (
+        componentRow || new MessageActionRow()
+      ).addComponents([
+        new MessageButton()
+          .setCustomId("conversation-abort")
+          .setLabel("Abort")
+          .setStyle("SECONDARY"),
+      ]);
+
+      if (!componentRow) {
+        content.components.push(abortConversationRow);
+      }
+    }
+
+    const question = await this.conv.channel.send(content);
 
     const actionResponse = new ActionResponse(
       this.interactionType,
       question,
+      this.conv,
       this.verifyResponse
     );
     const returnVal = await actionResponse.getResponse();
 
     if (!returnVal) {
-      this.conv.triggerMessage.channel.send(
-        "I could not handle this input. Please try again"
-      );
+      this.conv.channel.send("I could not handle this input. Please try again");
 
       question.delete();
       return await this.sendMessage();
@@ -227,7 +553,10 @@ export class ConversationAction {
 
     this.result = returnVal;
     if (this.onResultReceived) {
-      this.onResultReceived(returnVal);
+      if (!(await this.onResultReceived(returnVal, this.conv))) {
+        this.conv.abort();
+        return;
+      }
     }
     this.conv.actionResultChanged();
   }
@@ -236,24 +565,30 @@ export class ConversationAction {
 class ActionResponse {
   type: QuestionInteractionType;
   question: Message;
+  conv: Conversation;
   verifyResponse: (string) => boolean;
 
   constructor(
     type: QuestionInteractionType,
     question: Message,
+    conv: Conversation,
     verifyResponse: (string) => boolean
   ) {
     this.type = type;
     this.question = question;
+    this.conv = conv;
     this.verifyResponse = verifyResponse;
   }
 
   async getResponse(): Promise<string> {
     if (this.type === QuestionInteractionType.MESSAGE) {
       const messages = await this.question.channel.awaitMessages({
+        filter: (m) =>
+          m.author.id !== this.question.author.id && !this.conv.deleted,
         max: 1,
         time: 600000,
       } as AwaitMessagesOptions);
+      this.conv.channel.sendTyping();
 
       const content = messages.first().content;
 
@@ -266,6 +601,8 @@ class ActionResponse {
         componentType: "BUTTON",
         time: 600000,
       });
+      this.conv.addMessageComponentInteraction(interaction);
+
       const content = (interaction.component as MessageButton).label;
       interaction.deferUpdate();
       if (this.verifyResponse(content)) {
@@ -277,6 +614,8 @@ class ActionResponse {
         componentType: "SELECT_MENU",
         time: 600000,
       });
+      this.conv.addMessageComponentInteraction(interaction);
+
       const content = (interaction as SelectMenuInteraction).values[0];
       interaction.deferUpdate();
       if (this.verifyResponse(content)) {

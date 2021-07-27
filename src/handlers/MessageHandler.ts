@@ -1,5 +1,6 @@
 import {
   Client,
+  DMChannel,
   Interaction,
   Message,
   MessageActionRow,
@@ -11,13 +12,19 @@ import {
   WebhookMessageOptions,
 } from "discord.js";
 import DatabaseManager from "../db/DatabaseManager";
-import IUser from "../db/interfaces/IUser";
+import IUser, { IValoAccountInfo } from "../db/interfaces/IUser";
 import Conversation, {
   ConversationAction,
   QuestionInteractionType,
 } from "../Conversation";
+import ValorantApi, {
+  LinkUserResponseTypes,
+  RefreshUserResponseTypes,
+} from "../api/ValorantApi";
+import { v1 as uuidv1 } from "uuid";
 
 const dbManager = DatabaseManager.getInstance();
+const api = ValorantApi.getInstatnce();
 
 export default class MessageHandler {
   bot: Client;
@@ -25,117 +32,44 @@ export default class MessageHandler {
     this.bot = bot;
   }
   start(): void {
-    // this.bot.on("messageCreate", (msg) => this.handle(msg));
+    this.bot.on("messageCreate", (msg) => this.handle(msg));
   }
 
   private async handle(msg: Message) {
     if (msg.author.bot) return;
 
+    if (msg.channel.type === "GUILD_TEXT") this.handleGuildMessage(msg);
+    else if (msg.channel.type === "DM") this.handleDm(msg);
+  }
+
+  private async handleDm(msg: Message) {
     const dbUser = await dbManager.getUser({ discordId: msg.author.id });
 
-    if (msg.channel.type === "GUILD_TEXT") this.handleGuildMessage(msg, dbUser);
-    else if (msg.channel.type === "DM") this.handleDm(msg, dbUser);
+    if (Conversation.activeConversations.has(msg.author.id)) return;
+    switch (msg.content) {
+      case "link":
+        {
+          const conversation = await Conversation.createLinkConversation(
+            msg.channel as DMChannel,
+            msg.author
+          );
+          conversation.start();
+        }
+        break;
+      case "refresh":
+        {
+          const conversation = await Conversation.createRefreshConversation(
+            msg.channel as DMChannel,
+            msg.author
+          );
+          conversation?.sendNextCallToAction();
+        }
+        break;
+      default: {
+        msg.channel.send(Conversation.helpMessage);
+      }
+    }
   }
 
-  private async handleDm(msg: Message, dbUser: IUser) {
-    const conv = Conversation.createConversation(
-      msg,
-      (conv) => {
-        console.log(conv.actionStack.map((a) => a.result).join(", "));
-      },
-      (conv) => {}
-    );
-    conv?.setActions([
-      new ConversationAction(
-        "First",
-        conv,
-        QuestionInteractionType.BUTTON,
-        () => {
-          let row = new MessageActionRow().addComponents([
-            new MessageButton()
-              .setCustomId("conversation-confirm")
-              .setLabel("Yes")
-              .setStyle("PRIMARY"),
-            new MessageButton()
-              .setCustomId("conversation-deny")
-              .setLabel("No")
-              .setStyle("DANGER"),
-          ]);
-          return {
-            content: "Baum",
-            components: [row],
-          } as WebhookMessageOptions;
-        },
-        (content) => {
-          return content === "Yes" || content === "No";
-        }
-      ),
-      new ConversationAction(
-        "Second",
-        conv,
-        QuestionInteractionType.MESSAGE,
-        () => {
-          return {
-            content: "Blume",
-          } as WebhookMessageOptions;
-        },
-        (content) => {
-          return content === "Yes" || content === "No";
-        }
-      ),
-      new ConversationAction(
-        "Third",
-        conv,
-        QuestionInteractionType.BUTTON,
-        () => {
-          let row = new MessageActionRow().addComponents([
-            new MessageButton()
-              .setCustomId("conversation-confirm")
-              .setLabel("Yes")
-              .setStyle("PRIMARY"),
-            new MessageButton()
-              .setCustomId("conversation-deny")
-              .setLabel("No")
-              .setStyle("DANGER"),
-          ]);
-          return {
-            content: "Strauch",
-            components: [row],
-          } as WebhookMessageOptions;
-        },
-        (content) => {
-          return content === "Yes" || content === "No";
-        }
-      ),
-    ]);
-    conv?.sendNextCallToAction();
-  }
-
-  private async handleGuildMessage(msg: Message, databaseUser: IUser) {
-    let row = new MessageActionRow().addComponents([
-      new MessageButton()
-        .setCustomId("conversation-confirm")
-        .setLabel("Yes")
-        .setStyle("PRIMARY"),
-      new MessageButton()
-        .setCustomId("conversation-deny")
-        .setLabel("No")
-        .setStyle("DANGER"),
-    ]);
-
-    let sent = msg.channel.send({
-      content: "Test",
-      components: [row],
-    } as MessageOptions);
-    (await sent)
-      .awaitMessageComponent({
-        componentType: "BUTTON",
-        time: 5000,
-      })
-      .then((interaction: MessageComponentInteraction) => {
-        interaction.reply({ ephemeral: true, content: "Test" });
-        // msg.channel.send((interaction.component as MessageButton).label);
-      })
-      .catch((err) => {});
-  }
+  private async handleGuildMessage(msg: Message) {}
 }

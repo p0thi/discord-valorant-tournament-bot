@@ -7,7 +7,10 @@ import {
   MessageEmbed,
   TextChannel,
 } from "discord.js";
-import ValorantApi from "../api/ValorantApi";
+import ValorantApi, {
+  LinkUserResponseTypes,
+  RefreshUserResponseTypes,
+} from "../api/ValorantApi";
 import DatabaseManager from "../db/DatabaseManager";
 import { IValoAccountInfo } from "../db/interfaces/IUser";
 import CustomApplicationCommand, {
@@ -49,158 +52,108 @@ export default abstract class SlashCommandCreator {
 
         await interaction.defer({ ephemeral: true });
 
-        api
-          .getUser(splitName[0], splitName[1])
-          .then(async (user) => {
-            if (user) {
-              console.log(user);
-              let valoAccountInfo = dbUser[
-                `${user.data.region}_account`
-              ] as IValoAccountInfo;
-
-              if (!valoAccountInfo) {
-                valoAccountInfo = {} as IValoAccountInfo;
-                dbUser[`${user.data.region}_account`] = valoAccountInfo;
-                await dbUser.save();
-                valoAccountInfo = dbUser[
-                  `${user.data.region}_account`
-                ] as IValoAccountInfo;
-              }
-
-              if (valoAccountInfo.puuid) {
-                if (valoAccountInfo.puuid === user.data.puuid) {
+        api.getUser(splitName[0], splitName[1]).then((user) => {
+          api
+            .linkUser(user, dbUser)
+            .then(async (resp) => {
+              console.log("response", resp);
+              switch (resp[0]) {
+                case LinkUserResponseTypes.ALREADY_LINKED:
                   interaction.followUp({
                     content: `You already have linked this account: **${user.data.name}#${user.data.tag}**`,
                     ephemeral: true,
                   });
-                  return;
-                }
+                  break;
+                case LinkUserResponseTypes.DIFFERENT_ACCOUNT_LINKED:
+                  const overwriteId = uuidv1();
+                  const abortId = uuidv1();
 
-                console.log("account set");
+                  let valoAccountInfo = dbUser[
+                    `${user.data.region}_account`
+                  ] as IValoAccountInfo;
 
-                const overwriteId = uuidv1();
-                const abortId = uuidv1();
-                console.log(overwriteId);
+                  if (!valoAccountInfo) {
+                    valoAccountInfo = {} as IValoAccountInfo;
+                    dbUser[`${user.data.region}_account`] = valoAccountInfo;
+                    await dbUser.save();
+                    valoAccountInfo = dbUser[
+                      `${user.data.region}_account`
+                    ] as IValoAccountInfo;
+                  }
 
-                let row = new MessageActionRow().addComponents([
-                  new MessageButton()
-                    .setCustomId(overwriteId)
-                    .setLabel("Overwrite")
-                    .setStyle("PRIMARY"),
-                  new MessageButton()
-                    .setCustomId(abortId)
-                    .setLabel("Abort")
-                    .setStyle("DANGER"),
-                ]);
+                  console.log(overwriteId);
 
-                console.log("sending reply");
-                await interaction.followUp({
-                  content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
-                    valoAccountInfo.name
-                  }#${valoAccountInfo.tag}). Do you want to replace it?`,
-                  ephemeral: true,
-                  components: [row],
-                });
+                  let row = new MessageActionRow().addComponents([
+                    new MessageButton()
+                      .setCustomId(overwriteId)
+                      .setLabel("Overwrite")
+                      .setStyle("PRIMARY"),
+                    new MessageButton()
+                      .setCustomId(abortId)
+                      .setLabel("Abort")
+                      .setStyle("DANGER"),
+                  ]);
 
-                interaction.channel
-                  .createMessageComponentCollector({
-                    componentType: "BUTTON",
-                    time: 600000,
-                    filter: (i) => {
-                      const customId = i.customId;
-                      return customId === overwriteId || customId === abortId;
-                    },
-                    max: 1,
-                  })
-                  .on("collect", async (collected) => {
-                    console.log("Button Interaction");
-
-                    const content = collected.customId;
-
-                    if (content === overwriteId) {
-                      console.log("overwrite");
-                      valoAccountInfo.puuid = user.data.puuid;
-
-                      const eloData = await api.getEloByPuuidAndRegion(
-                        user.data.puuid,
-                        user.data.region
-                      );
-
-                      if (eloData) {
-                        valoAccountInfo.elo = eloData.elo;
-                        valoAccountInfo.currenttier = eloData.currenttier;
-                        valoAccountInfo.currenttierpatched =
-                          eloData.currenttierpatched;
-                        valoAccountInfo.name = eloData.name;
-                        valoAccountInfo.tag = eloData.tag;
-
-                        // dbUser[`${user.data.region}_account`] = valoAccountInfo;
-                      }
-
-                      await dbUser.save();
-
-                      // await collected.deferUpdate();
-                      collected.reply({
-                        content: `Linked **${valoAccountInfo.name}#${
-                          valoAccountInfo.tag
-                        }** (Level ${
-                          user.data.account_level
-                        }) to your discord account for the server region **${user.data.region.toUpperCase()}**.`,
-                        ephemeral: true,
-                      });
-                    } else if (content === abortId) {
-                      console.log("abort");
-                      collected.reply({
-                        content: "Aborted",
-                        ephemeral: true,
-                      });
-                    }
+                  console.log("sending reply");
+                  await interaction.followUp({
+                    content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
+                      valoAccountInfo.name
+                    }#${valoAccountInfo.tag}). Do you want to replace it?`,
+                    ephemeral: true,
+                    components: [row],
                   });
-              } else {
-                valoAccountInfo.puuid = user.data.puuid;
 
-                const eloData = await api.getEloByPuuidAndRegion(
-                  user.data.puuid,
-                  user.data.region
-                );
+                  interaction.channel
+                    .createMessageComponentCollector({
+                      componentType: "BUTTON",
+                      time: 600000,
+                      filter: (i) => {
+                        const customId = i.customId;
+                        return customId === overwriteId || customId === abortId;
+                      },
+                      max: 1,
+                    })
+                    .on("collect", async (collected) => {
+                      console.log("Button Interaction");
 
-                console.log(eloData);
+                      const content = collected.customId;
 
-                if (eloData) {
-                  valoAccountInfo.elo = eloData.elo;
-                  valoAccountInfo.currenttier = eloData.currenttier;
-                  valoAccountInfo.currenttierpatched =
-                    eloData.currenttierpatched;
-                  valoAccountInfo.name = eloData.name;
-                  valoAccountInfo.tag = eloData.tag;
-                  // dbUser[`${user.data.region}_account`] = valoAccountInfo;
-                } else {
-                  valoAccountInfo.elo = 0;
-                  valoAccountInfo.currenttier = 10;
-                  valoAccountInfo.currenttierpatched = "Estimated: Silver 2";
-                  valoAccountInfo.name = user.data.name;
-                  valoAccountInfo.tag = user.data.tag;
-                }
-
-                await dbUser.save();
-
-                interaction.followUp({
-                  content: `Linked **${valoAccountInfo.name}#${
-                    valoAccountInfo.tag
-                  }** (Level ${
-                    user.data.account_level
-                  }) to your discord account for the server reqion **${user.data.region.toUpperCase()}**.`,
-                  ephemeral: true,
-                });
+                      if (content === overwriteId) {
+                        console.log("overwrite");
+                        await api.linkUser(user, dbUser, true);
+                        collected.reply({
+                          ephemeral: true,
+                          content: `Successfully overwrote your account with **${user.data.name}#${user.data.tag}**.`,
+                        });
+                      } else if (content === abortId) {
+                        console.log("abort");
+                        collected.reply({
+                          content: "Aborted",
+                          ephemeral: true,
+                        });
+                      }
+                    });
+                  break;
+                case LinkUserResponseTypes.NOT_FOUND:
+                  interaction.followUp({
+                    content: `Could not find a Valorant account with the name **${valoUserName}**`,
+                    ephemeral: true,
+                  });
+                  break;
+                case LinkUserResponseTypes.OK:
+                  interaction.followUp({
+                    content: `Linked **${user.data.name}#${
+                      user.data.tag
+                    }** (Level ${
+                      user.data.account_level
+                    }) to your discord account for the server reqion **${user.data.region.toUpperCase()}**.`,
+                    ephemeral: true,
+                  });
+                  break;
               }
-            } else {
-              interaction.followUp({
-                content: `Couldn't find Valorant user **${valoUserName}**`,
-                ephemeral: true,
-              });
-            }
-          })
-          .catch((error) => {});
+            })
+            .catch((error) => {});
+        });
       },
     } as CustomApplicationCommand,
     {
@@ -228,63 +181,47 @@ export default abstract class SlashCommandCreator {
           discordId: interaction.user.id,
         });
 
-        const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
-
         interaction.defer({ ephemeral: true });
 
-        if (!valoAccountInfo || !valoAccountInfo.puuid) {
-          interaction.followUp({
-            content:
-              "You don't have a Valorant account linked for that region.",
-            ephemeral: true,
-          });
-          return;
-        }
+        const refreshResp = await api.refreshUser(dbUser, region as string);
 
-        api
-          .getEloByPuuidAndRegion(valoAccountInfo.puuid, region as string)
-          .then(async (data) => {
-            if (!data) {
+        const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
+
+        switch (refreshResp[0]) {
+          case RefreshUserResponseTypes.OK:
+            {
+              interaction.followUp({
+                content: `Refreshed the Valorant account info for **${valoAccountInfo.name}#${valoAccountInfo.tag}**.`,
+                ephemeral: true,
+              });
+            }
+            break;
+          case RefreshUserResponseTypes.NO_ELO_FOUND:
+            {
               interaction.followUp({
                 content:
                   "Couldn't get Elo data.\nMaybe it has been a long time since you played a competetive match?",
                 ephemeral: true,
               });
-              return;
             }
-
-            valoAccountInfo.elo = data.elo;
-            valoAccountInfo.currenttier = data.currenttier;
-            valoAccountInfo.currenttierpatched = data.currenttierpatched;
-            valoAccountInfo.name = data.name;
-            valoAccountInfo.tag = data.tag;
-            await dbUser.save();
-
-            interaction.followUp({
-              content: `Refreshed the Valorant account info for **${valoAccountInfo.name}#${valoAccountInfo.tag}**.`,
-              ephemeral: true,
-            });
-          });
+            break;
+          case RefreshUserResponseTypes.NOT_LINKED:
+            {
+              interaction.followUp({
+                content: `You are not linked to a Valorant account for the region **${(
+                  region as string
+                ).toUpperCase()}**.`,
+                ephemeral: true,
+              });
+            }
+            break;
+        }
       },
     } as CustomApplicationCommand,
     {
       name: "help",
       description: "Shows help message",
       defaultPermission: true,
-      // options: [
-      //   {
-      //     name: "region",
-      //     description: "Your valoran accounts server region",
-      //     type: "STRING",
-      //     required: true,
-      //     choices: [
-      //       { name: "Europe", value: "eu" },
-      //       { name: "Asia Pacific", value: "ap" },
-      //       { name: "North America", value: "na" },
-      //       { name: "Korea", value: "kr" },
-      //     ],
-      //   },
-      // ],
       async handler(interaction: CommandInteraction) {
         interaction.reply({
           ephemeral: true,
