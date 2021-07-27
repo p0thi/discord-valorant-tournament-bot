@@ -5,7 +5,7 @@ import InteractionHandler from "../../handlers/InteractionHandler";
 import TournamentManager from "../../managers/TournamentManager";
 import TournamentMessage from "../../TournamentMessage";
 import CustomApplicationCommand, {
-  CommandPermissionRoles,
+  CommandPermissionRole,
 } from "../CustomApplicationCommand";
 import { SlashCommandTemplate } from "../SlashCommandCreator";
 import AObservableCommand from "./AObservableCommand";
@@ -37,7 +37,7 @@ export default class TournamentCommand
   }
 
   async generateTemplate(): Promise<SlashCommandTemplate> {
-    const role = CommandPermissionRoles.MOD;
+    const role = CommandPermissionRole.MOD;
     const templateDbGuild = await dbManager.getGuild({
       discordId: this.guild.id,
     });

@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import { CommandPermissionRoles } from "../../commands/CustomApplicationCommand";
+import { CommandPermissionRole } from "../../commands/CustomApplicationCommand";
 import IGuild from "../interfaces/IGuild";
 
 const tournamentTeamSchema: Schema = new Schema({
@@ -54,7 +54,7 @@ const guildPermissionSchema: Schema = new Schema(
     permission: {
       type: String,
       required: true,
-      enum: Object.values(CommandPermissionRoles),
+      enum: Object.values(CommandPermissionRole),
     },
     roleId: { type: String, required: true },
   },

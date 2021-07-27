@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import DatabaseManager from "../../db/DatabaseManager";
 import IGuild, { IGuildPermission } from "../../db/interfaces/IGuild";
 import CustomApplicationCommand, {
-  CommandPermissionRoles,
+  CommandPermissionRole,
 } from "../CustomApplicationCommand";
 import SlashCommandCreator, {
   SlashCommandTemplate,
@@ -54,7 +54,7 @@ export default class PermissionCommand
   }
 
   async generateTemplate(): Promise<SlashCommandTemplate> {
-    const role = CommandPermissionRoles.ADMIN;
+    const role = CommandPermissionRole.ADMIN;
     return {
       name: "permission",
       role,
@@ -68,126 +68,158 @@ export default class PermissionCommand
           defaultPermission: false,
           options: [
             {
-              name: "mode",
-              description: "If you want to grant or revoke the permission",
-              required: true,
-              type: "STRING",
-              choices: [
-                { name: "Grant permission", value: "grant" },
-                { name: "Revoke permission", value: "revoke" },
+              name: "list",
+              description: "Lists all the permission currently applied.",
+              type: "SUB_COMMAND",
+            },
+            {
+              name: "edit",
+              description: "Edits a permission.",
+              type: "SUB_COMMAND",
+              options: [
+                {
+                  name: "mode",
+                  description: "If you want to grant or revoke the permission",
+                  required: true,
+                  type: "STRING",
+                  choices: [
+                    { name: "Grant permission", value: "grant" },
+                    { name: "Revoke permission", value: "revoke" },
+                  ],
+                },
+                {
+                  name: "role",
+                  description: "The role to grant to or revoke from",
+                  type: "ROLE",
+                  required: true,
+                },
+                {
+                  name: "category",
+                  description:
+                    "The category of commands to which the permission should be edited",
+                  required: true,
+                  type: "STRING",
+                  choices: Object.keys(CommandPermissionRole)
+                    .filter((k) => isNaN(Number(k)))
+                    .map((k) => ({
+                      name: k[0] + k.slice(1).toLowerCase(),
+                      value: k,
+                    })),
+                },
               ],
-            },
-            {
-              name: "role",
-              description: "The role to grant to or revoke from",
-              type: "ROLE",
-              required: true,
-            },
-            {
-              name: "category",
-              description:
-                "The category of commands to which the permission should be edited",
-              required: true,
-              type: "STRING",
-              choices: Object.keys(CommandPermissionRoles)
-                .filter((k) => isNaN(Number(k)))
-                .map((k) => ({
-                  name: k[0] + k.slice(1).toLowerCase(),
-                  value: k,
-                })),
             },
           ],
 
           handler: async (interaction: CommandInteraction) => {
-            const { value: mode } = interaction.options.get("mode");
-            const { value: role } = interaction.options.get("role");
-            const { value: category } = interaction.options.get("category");
+            const subCommand = interaction.options.getSubCommand();
 
             interaction.defer({ ephemeral: true });
-
-            const commands = this.guild.commands.cache;
-
-            const guildCommands = await SlashCommandCreator.getAllGuildCommands(
-              this.guild
-            );
-
-            const allGuildCommandTemplates = await Promise.all(
-              guildCommands.map(async (c) => await c.generateTemplate())
-            );
-
             const dbGuild = await dbManager.getGuild({
               discordId: this.guild.id,
             });
 
-            // const commandsWithRole = [
-            //   ...this.guild.commands.cache.filter(
-            //     (c) =>
-            //       CommandPermissionRoles[
-            //         allGuildCommandTemplates.find((i) => i.name === c.name)
-            //           ?.role
-            //       ] === category
-            //   ),
-            // ];
-
-            switch (mode) {
-              case "grant":
+            switch (subCommand) {
+              case "list":
                 {
-                  if (
-                    !dbGuild.permissions.find(
-                      (p) => p.roleId === role && p.permission === category
-                    )
-                  ) {
-                    dbGuild.permissions.push({
-                      permission: category,
-                      roleId: role,
-                    } as IGuildPermission);
-                    await dbGuild.save();
+                  const rolesByPermission: Map<
+                    CommandPermissionRole,
+                    Set<string>
+                  > = new Map();
 
-                    interaction.followUp({
-                      content: `Added permission for **${category}** to role <@&${role}>`,
-                      ephemeral: true,
-                    });
-                  } else {
-                    interaction.followUp({
-                      content: `Permission for **${category}** for <@&${role}> already exists`,
-                      ephemeral: true,
-                    });
-                  }
-                  this.notifyPermissionObservers(
-                    CommandPermissionRoles[category as string]
-                  );
+                  dbGuild.permissions.forEach((permission) => {
+                    const role = CommandPermissionRole[permission.permission];
+                    if (!rolesByPermission.has(role)) {
+                      rolesByPermission.set(role, new Set());
+                    }
+                    rolesByPermission.get(role).add(permission.roleId);
+                  });
+                  console.log(rolesByPermission);
+                  interaction.followUp({
+                    ephemeral: true,
+                    embeds: [
+                      {
+                        title: "Current permissions:",
+                        fields: Array.from(rolesByPermission).map(([k, v]) => ({
+                          name: k,
+                          value: Array.from(v, (x) => `<@&${x}>`).join(", "),
+                        })),
+                      },
+                    ],
+                  });
                 }
                 break;
-              case "revoke":
+              case "edit":
                 {
-                  if (
-                    dbGuild.permissions.find(
-                      (p) => p.roleId === role && p.permission === category
-                    )
-                  ) {
-                    const newPermissions = dbGuild.permissions.filter(
-                      (p) => p.roleId !== role && p.permission !== category
-                    ) as Types.Array<IGuildPermission>;
+                  const { value: mode } = interaction.options.get("mode");
+                  const { value: role } = interaction.options.get("role");
+                  const { value: category } =
+                    interaction.options.get("category");
 
-                    dbGuild.permissions = newPermissions;
-                    await dbGuild.save();
+                  switch (mode) {
+                    case "grant":
+                      {
+                        if (
+                          !dbGuild.permissions.find(
+                            (p) =>
+                              p.roleId === role && p.permission === category
+                          )
+                        ) {
+                          dbGuild.permissions.push({
+                            permission: category,
+                            roleId: role,
+                          } as IGuildPermission);
+                          await dbGuild.save();
 
-                    interaction.followUp({
-                      content: `Removed permissions for **${category}** for role <@&${role}>`,
-                      ephemeral: true,
-                    });
-                  } else {
-                    interaction.followUp({
-                      content: `No permissions for **${category}** for role <@&${role}>`,
-                      ephemeral: true,
-                    });
+                          interaction.followUp({
+                            content: `Added permission for **${category}** to role <@&${role}>`,
+                            ephemeral: true,
+                          });
+                        } else {
+                          interaction.followUp({
+                            content: `Permission for **${category}** for <@&${role}> already exists`,
+                            ephemeral: true,
+                          });
+                        }
+                        this.notifyPermissionObservers(
+                          CommandPermissionRole[category as string]
+                        );
+                      }
+                      break;
+                    case "revoke":
+                      {
+                        if (
+                          dbGuild.permissions.find(
+                            (p) =>
+                              p.roleId === role && p.permission === category
+                          )
+                        ) {
+                          const newPermissions = dbGuild.permissions.filter(
+                            (p) =>
+                              p.roleId !== role && p.permission !== category
+                          ) as Types.Array<IGuildPermission>;
+
+                          dbGuild.permissions = newPermissions;
+                          await dbGuild.save();
+
+                          interaction.followUp({
+                            content: `Removed permissions for **${category}** for role <@&${role}>`,
+                            ephemeral: true,
+                          });
+                        } else {
+                          interaction.followUp({
+                            content: `No permissions for **${category}** for role <@&${role}>`,
+                            ephemeral: true,
+                          });
+                        }
+
+                        this.notifyPermissionObservers(
+                          CommandPermissionRole[category as string]
+                        );
+                      }
+
+                      break;
                   }
-
-                  this.notifyPermissionObservers(
-                    CommandPermissionRoles[category as string]
-                  );
                 }
-
                 break;
             }
           },
@@ -196,7 +228,7 @@ export default class PermissionCommand
     } as SlashCommandTemplate;
   }
 
-  notifyPermissionObservers(role: CommandPermissionRoles) {
+  notifyPermissionObservers(role: CommandPermissionRole) {
     if (!role) {
       return;
     }

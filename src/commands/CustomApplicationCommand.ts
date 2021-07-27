@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import DatabaseManager from "../db/DatabaseManager";
 
-export enum CommandPermissionRoles {
+export enum CommandPermissionRole {
   ADMIN = "ADMIN",
   MOD = "MOD",
 }
@@ -15,7 +15,7 @@ export enum CommandPermissionRoles {
 export default class CustomApplicationCommand extends ApplicationCommand {
   handler: (Interaction) => Promise<void>;
   forOwner: boolean = true;
-  role: CommandPermissionRoles;
+  role: CommandPermissionRole;
 
   constructor(
     client: Client,
@@ -32,13 +32,13 @@ export default class CustomApplicationCommand extends ApplicationCommand {
 
   static async getPermissions(
     guildId: `${bigint}`,
-    role: CommandPermissionRoles
+    role: CommandPermissionRole
   ): Promise<ApplicationCommandPermissionData[]> {
     const dbGuild = await DatabaseManager.getInstance().getGuild({
       discordId: guildId,
     });
     const result: ApplicationCommandPermissionData[] = dbGuild.permissions
-      .filter((p) => role === CommandPermissionRoles[p.permission])
+      .filter((p) => role === CommandPermissionRole[p.permission])
       .map(
         (p) =>
           ({

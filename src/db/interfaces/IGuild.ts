@@ -1,5 +1,5 @@
 import { Document, Types } from "mongoose";
-import { CommandPermissionRoles } from "../../commands/CustomApplicationCommand";
+import { CommandPermissionRole } from "../../commands/CustomApplicationCommand";
 import IUser from "./IUser";
 
 export default interface IGuild extends Document {
@@ -33,6 +33,6 @@ export interface IPremade extends Types.Subdocument {
 }
 
 export interface IGuildPermission {
-  permission: CommandPermissionRoles;
+  permission: CommandPermissionRole;
   roleId: `${bigint}`;
 }

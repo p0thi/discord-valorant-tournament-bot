@@ -1,9 +1,9 @@
-import { CommandPermissionRoles } from "../CustomApplicationCommand";
+import { CommandPermissionRole } from "../CustomApplicationCommand";
 import IGuildCommand from "./IGuildCommand";
 
 export default interface IPermissionChangeObserver {
   onPermissionChange(
     command: IGuildCommand,
-    role: CommandPermissionRoles
+    role: CommandPermissionRole
   ): Promise<void>;
 }

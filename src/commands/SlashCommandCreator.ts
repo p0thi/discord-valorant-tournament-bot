@@ -11,7 +11,7 @@ import ValorantApi from "../api/ValorantApi";
 import DatabaseManager from "../db/DatabaseManager";
 import { IValoAccountInfo } from "../db/interfaces/IUser";
 import CustomApplicationCommand, {
-  CommandPermissionRoles,
+  CommandPermissionRole,
 } from "./CustomApplicationCommand";
 import { v1 as uuidv1 } from "uuid";
 import IGuild, { ITournamentSetting } from "../db/interfaces/IGuild";
@@ -293,8 +293,8 @@ export default abstract class SlashCommandCreator {
               title: "All commands and a description",
               fields: [
                 {
-                  name: "GLOBAL COMMANDS:",
-                  value: "\u200b",
+                  name: "\u200b",
+                  value: "**GLOBAL COMMANDS:**",
                 },
                 {
                   name: "/link",
@@ -307,8 +307,8 @@ export default abstract class SlashCommandCreator {
                     "Refreshes your Valorant account info for a region (eg rank).",
                 },
                 {
-                  name: "SERVER COMMANDS:",
-                  value: "\u200b",
+                  name: "\u200b",
+                  value: "**SERVER COMMANDS:**",
                 },
                 {
                   name: "/tournament",
@@ -318,7 +318,7 @@ export default abstract class SlashCommandCreator {
                 {
                   name: "/permission",
                   value:
-                    "Needs **ADMIN** permissions.\nGrant/revoke the MOD or ADMIN permissions to a discord group (not inclusive: roles with ADMIN permissions do not automatically have MOD permissions and should be granted both).",
+                    "Needs **ADMIN** permissions.\nGrant/revoke/list the MOD or ADMIN permissions to a discord group (not inclusive: roles with ADMIN permissions do not automatically have MOD permissions and should be granted both).",
                 },
               ],
             } as MessageEmbed,
@@ -339,7 +339,7 @@ export default abstract class SlashCommandCreator {
 
 export interface SlashCommandTemplate {
   name: string;
-  role?: CommandPermissionRoles;
+  role?: CommandPermissionRole;
   defaultPermission: boolean;
   forOwner: boolean;
   permissions: ApplicationCommandPermissionData[];

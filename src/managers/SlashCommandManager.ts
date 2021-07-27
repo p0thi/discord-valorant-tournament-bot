@@ -13,7 +13,7 @@ import SlashCommandCreator, {
 import IGuildCommandObserver from "../commands/guild_commands/IGuildCommandObserver";
 import IGuildCommand from "../commands/guild_commands/IGuildCommand";
 import CustomApplicationCommand, {
-  CommandPermissionRoles,
+  CommandPermissionRole,
 } from "../commands/CustomApplicationCommand";
 import IPermissionChangeObserver from "../commands/guild_commands/IPermissionChangeObserver";
 import PermissionCommand from "../commands/guild_commands/PermissionCommand";
@@ -30,7 +30,7 @@ export default class SlashCommandManager
   }
   async onPermissionChange(
     command: IGuildCommand,
-    role: CommandPermissionRoles
+    role: CommandPermissionRole
   ): Promise<void> {
     const allGuildCommands = await SlashCommandCreator.getAllGuildCommands(
       command.guild
