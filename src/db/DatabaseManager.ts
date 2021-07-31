@@ -24,7 +24,9 @@ export default class DatabaseManager {
   async connect() {
     const url = `mongodb://${process.env.MONGO_USER}:${
       process.env.MONGO_PASSWORD
-    }@${process.env.MONGO_URL}:${process.env.MONGO_PORT ?? 27017}/${this.path}`;
+    }@${process.env.MONGO_URL}:${process.env.MONGO_PORT ?? 27017}/${
+      this.path
+    }?authSource=admin`;
     console.log("DB connecting to:", url);
     this.conn = await mongoose.connect(url, {
       useNewUrlParser: true,
