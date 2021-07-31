@@ -170,10 +170,10 @@ export default class InteractionHandler {
                   (discordId) => discordId !== dbUser.discordId
                 );
 
-                // remove existing groups with the current submitted selection
                 const populatedTournament =
                   await tournamentManager.populateTournament();
 
+                // remove existing groups with the current submitted selection
                 populatedTournament.premades =
                   populatedTournament.premades.filter(
                     (p) =>
@@ -182,6 +182,20 @@ export default class InteractionHandler {
                         p.target.discordId.toString()
                       )
                   ) as Types.DocumentArray<IPremade>;
+
+                if (
+                  populatedTournament.premades.filter(
+                    (p) => p.issuer.id.toString() === dbUser.id.toString()
+                  ).length +
+                    selectMenuInteraction.values.length >
+                  5
+                ) {
+                  interaction.followUp({
+                    content: "You cannot select more than 5 people!",
+                    ephemeral: true,
+                  });
+                  return;
+                }
 
                 const dbUsers = await Promise.all(
                   otherParticipants.map((discordId) =>
