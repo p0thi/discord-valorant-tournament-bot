@@ -25,7 +25,7 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=toor # change this while running!
     restart: always
     volumes:
-      - $PWD/docker_mongodb_data:/data/db
+      - ~/docker_mongodb_data:/data/db
     ports:
       - "27017:27017"
     logging:
