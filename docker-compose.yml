@@ -1,7 +1,6 @@
 version: "2"
 services:
   bot:
-    # entrypoint: /bin/sh -c
     container_name: bot
     restart: always
     build: .
@@ -21,9 +20,12 @@ services:
   mongo:
     container_name: mongo
     image: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=toor # change this while running!
     restart: always
     volumes:
-      - ~/data:/data/db
+      - $PWD/docker_mongodb_data:/data/db
     ports:
       - "27017:27017"
     logging:

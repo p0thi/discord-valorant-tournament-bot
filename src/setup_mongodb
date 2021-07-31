@@ -1,0 +1,12 @@
+# login with default credentials
+use admin
+db.changeUserPassword("root", passwordPrompt())
+# enter new passwordPrompt
+
+db.createUser(
+    {
+        user: "discord-tournament",
+        pwd: passwordPrompt(),
+        roles: [ { role: "readWrite", db: "discord-tournament"} ]
+    }
+)
