@@ -286,7 +286,7 @@ export default class Conversation {
           switch (linkResult[0]) {
             case LinkUserResponseTypes.ALREADY_LINKED:
               conv.channel.send({
-                content: `You already have linked this account: **${user.data.name}#${user.data.tag}**\nInteraction has been aborted. Please start a new one.`,
+                content: `You already have linked this account: **${user.name}#${user.tag}**\nInteraction has been aborted. Please start a new one.`,
               });
               resolve(false);
               break;
@@ -295,15 +295,15 @@ export default class Conversation {
               const abortId = uuidv1();
 
               let valoAccountInfo = dbUser[
-                `${user.data.region}_account`
+                `${user.region}_account`
               ] as IValoAccountInfo;
 
               if (!valoAccountInfo) {
                 valoAccountInfo = {} as IValoAccountInfo;
-                dbUser[`${user.data.region}_account`] = valoAccountInfo;
+                dbUser[`${user.region}_account`] = valoAccountInfo;
                 await dbUser.save();
                 valoAccountInfo = dbUser[
-                  `${user.data.region}_account`
+                  `${user.region}_account`
                 ] as IValoAccountInfo;
               }
 
@@ -322,7 +322,7 @@ export default class Conversation {
 
               console.log("sending reply");
               await conv.channel.send({
-                content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
+                content: `You already have a Valorant account in **${user.region.toUpperCase()}** linked (${
                   valoAccountInfo.name
                 }#${valoAccountInfo.tag}). Do you want to replace it?`,
                 components: [row],
@@ -347,7 +347,7 @@ export default class Conversation {
                     console.log("overwrite");
                     await api.linkUser(user, dbUser, true);
                     collected.reply({
-                      content: `Successfully overwrote your account with **${user.data.name}#${user.data.tag}**.`,
+                      content: `Successfully overwrote your account with **${user.name}#${user.tag}**.`,
                     });
                     resolve(true);
                   } else if (content === abortId) {
@@ -365,11 +365,9 @@ export default class Conversation {
               break;
             case LinkUserResponseTypes.OK:
               conv.channel.send({
-                content: `Linked **${user.data.name}#${
-                  user.data.tag
-                }** (Level ${
-                  user.data.account_level
-                }) to your discord account for the server reqion **${user.data.region.toUpperCase()}**.`,
+                content: `Linked **${user.name}#${user.tag}** (Level ${
+                  user.account_level
+                }) to your discord account for the server reqion **${user.region.toUpperCase()}**.`,
               });
               resolve(true);
               break;

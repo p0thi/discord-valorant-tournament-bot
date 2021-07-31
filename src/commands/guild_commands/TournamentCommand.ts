@@ -168,6 +168,26 @@ export default class TournamentCommand
                       },
                     ],
                   },
+                  {
+                    name: "add",
+                    description: "Add a player to a tournament",
+                    type: "SUB_COMMAND",
+                    options: [
+                      {
+                        name: "tournament",
+                        description: "The tournament to add to",
+                        type: "STRING",
+                        required: true,
+                        choices: guildTournaments,
+                      },
+                      {
+                        name: "player",
+                        description: "The player to add",
+                        type: "USER",
+                        required: true,
+                      },
+                    ],
+                  },
                 ]
               : []),
           ],
@@ -289,6 +309,49 @@ export default class TournamentCommand
 
                   interaction.followUp({
                     content: `Player <@${dbUserToKick.discordId}> kicked.`,
+                    ephemeral: true,
+                  });
+                }
+                break;
+              case "add":
+                {
+                  const { value: tournamentId } =
+                    interaction.options.get("tournament");
+                  const { value: player } = interaction.options.get("player");
+                  const dbUserToAdd = await dbManager.getUser({
+                    discordId: player,
+                  });
+
+                  const tournament =
+                    dbGuild.tournamentSettings.id(tournamentId);
+                  const tournamentManager = new TournamentManager(
+                    this.guild,
+                    tournament
+                  );
+
+                  if (tournament.participants.length >= 100) {
+                    interaction.followUp({
+                      content: "The tournament is full.",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  if (tournament.participants.includes(dbUserToAdd.id)) {
+                    interaction.followUp({
+                      content: "That player is already in the tournament.",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  tournament.participants.addToSet(dbUserToAdd);
+                  await tournament.ownerDocument().save();
+
+                  tournamentManager.tournamentMessage.editAllMessages();
+
+                  interaction.followUp({
+                    content: `Player <@${dbUserToAdd.discordId}> added.`,
                     ephemeral: true,
                   });
                 }

@@ -21,6 +21,7 @@ import IGuild, { ITournamentSetting } from "../db/interfaces/IGuild";
 import TournamentCommand from "./guild_commands/TournamentCommand";
 import IGuildCommand from "./guild_commands/IGuildCommand";
 import PermissionCommand from "./guild_commands/PermissionCommand";
+import ModerateCommand from "./guild_commands/ModerateCommand";
 
 const api = ValorantApi.getInstatnce();
 const dbManager = DatabaseManager.getInstance();
@@ -60,7 +61,7 @@ export default abstract class SlashCommandCreator {
               switch (resp[0]) {
                 case LinkUserResponseTypes.ALREADY_LINKED:
                   interaction.followUp({
-                    content: `You already have linked this account: **${user.data.name}#${user.data.tag}**`,
+                    content: `You already have linked this account: **${user.name}#${user.tag}**`,
                     ephemeral: true,
                   });
                   break;
@@ -69,15 +70,15 @@ export default abstract class SlashCommandCreator {
                   const abortId = uuidv1();
 
                   let valoAccountInfo = dbUser[
-                    `${user.data.region}_account`
+                    `${user.region}_account`
                   ] as IValoAccountInfo;
 
                   if (!valoAccountInfo) {
                     valoAccountInfo = {} as IValoAccountInfo;
-                    dbUser[`${user.data.region}_account`] = valoAccountInfo;
+                    dbUser[`${user.region}_account`] = valoAccountInfo;
                     await dbUser.save();
                     valoAccountInfo = dbUser[
-                      `${user.data.region}_account`
+                      `${user.region}_account`
                     ] as IValoAccountInfo;
                   }
 
@@ -96,7 +97,7 @@ export default abstract class SlashCommandCreator {
 
                   console.log("sending reply");
                   await interaction.followUp({
-                    content: `You already have a Valorant account in **${user.data.region.toUpperCase()}** linked (${
+                    content: `You already have a Valorant account in **${user.region.toUpperCase()}** linked (${
                       valoAccountInfo.name
                     }#${valoAccountInfo.tag}). Do you want to replace it?`,
                     ephemeral: true,
@@ -123,7 +124,7 @@ export default abstract class SlashCommandCreator {
                         await api.linkUser(user, dbUser, true);
                         collected.reply({
                           ephemeral: true,
-                          content: `Successfully overwrote your account with **${user.data.name}#${user.data.tag}**.`,
+                          content: `Successfully overwrote your account with **${user.name}#${user.tag}**.`,
                         });
                       } else if (content === abortId) {
                         console.log("abort");
@@ -142,11 +143,9 @@ export default abstract class SlashCommandCreator {
                   break;
                 case LinkUserResponseTypes.OK:
                   interaction.followUp({
-                    content: `Linked **${user.data.name}#${
-                      user.data.tag
-                    }** (Level ${
-                      user.data.account_level
-                    }) to your discord account for the server reqion **${user.data.region.toUpperCase()}**.`,
+                    content: `Linked **${user.name}#${user.tag}** (Level ${
+                      user.account_level
+                    }) to your discord account for the server reqion **${user.region.toUpperCase()}**.`,
                     ephemeral: true,
                   });
                   break;
@@ -257,6 +256,11 @@ export default abstract class SlashCommandCreator {
                   value:
                     "Needs **ADMIN** permissions.\nGrant/revoke/list the MOD or ADMIN permissions to a discord group (not inclusive: roles with ADMIN permissions do not automatically have MOD permissions and should be granted both).",
                 },
+                {
+                  name: "/moderate",
+                  value:
+                    "Needs **MOD** permissions.\nModerate the bot, users, ...",
+                },
               ],
             } as MessageEmbed,
           ],
@@ -269,6 +273,7 @@ export default abstract class SlashCommandCreator {
     const commands = [
       TournamentCommand.getInstance(guild),
       PermissionCommand.getInstance(guild),
+      ModerateCommand.getInstance(guild),
     ];
     return commands;
   }

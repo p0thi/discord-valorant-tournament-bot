@@ -167,7 +167,6 @@ export default class TournamentMessage {
   }
 
   private async mainMessageContent(): Promise<MessageOptions> {
-    this.tournament;
     const row1 = new MessageActionRow().addComponents([
       new MessageButton()
         .setCustomId(`join_tournament#${this.uniqueTournamentId}`)
@@ -180,9 +179,9 @@ export default class TournamentMessage {
     ]);
 
     const participants = await Promise.all(
-      this.tournament.participants.map((participant) =>
-        dbManager.getUser({ _id: participant })
-      )
+      this.tournament.participants.map((participant) => {
+        return dbManager.getUser({ _id: participant });
+      })
     );
     const participantMembers = await this.guild.members.fetch({
       user: participants.map((participant) => participant.discordId),
@@ -251,7 +250,7 @@ export default class TournamentMessage {
 
     const participants = await Promise.all(
       populatedTournament.participants.map(async (p) => {
-        return await dbManager.getUser({ _id: p });
+        return await dbManager.getUser({ _id: p.id });
       })
     );
 

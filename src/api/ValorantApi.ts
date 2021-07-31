@@ -15,7 +15,7 @@ export default class ValorantApi {
     return this.instance;
   }
 
-  async getUser(name: string, tag: string): Promise<any> {
+  async getUser(name: string, tag: string): Promise<IApiUser> {
     return new Promise(async (resolve, reject) => {
       const url = `${baseUrl}/valorant/v1/account/${encodeURIComponent(
         name
@@ -24,8 +24,11 @@ export default class ValorantApi {
       axios
         .get(url)
         .then((response) => {
-          // console.log(response.data);
-          resolve(response.data);
+          if ((response.data.status = "200")) {
+            resolve(response.data.data as IApiUser);
+          } else {
+            resolve(undefined);
+          }
         })
         .catch((error) => {
           return resolve(undefined);
@@ -37,7 +40,7 @@ export default class ValorantApi {
     name: string,
     tag: string,
     region: string
-  ): Promise<any> {
+  ): Promise<IApiAccountInfo> {
     return new Promise(async (resolve, reject) => {
       const newUrl = `${baseUrl}/valorant/v2/mmr/${region}/${encodeURIComponent(
         name
@@ -45,7 +48,11 @@ export default class ValorantApi {
       axios
         .get(newUrl)
         .then((response) => {
-          resolve(response.data.data.current_data);
+          resolve({
+            ...response.data.data.current_data,
+            name: response.data.data.name,
+            tag: response.data.data.tag,
+          } as IApiAccountInfo);
         })
         .catch((err) => {
           console.log(err);
@@ -54,7 +61,10 @@ export default class ValorantApi {
     });
   }
 
-  async getEloByPuuidAndRegion(puuid: string, region: string): Promise<any> {
+  async getEloByPuuidAndRegion(
+    puuid: string,
+    region: string
+  ): Promise<IApiAccountInfo> {
     return new Promise(async (resolve, reject) => {
       const url = `${baseUrl}/valorant/v1/by-puuid/mmr/${region}/${encodeURIComponent(
         puuid
@@ -62,7 +72,7 @@ export default class ValorantApi {
       axios
         .get(url)
         .then((response) => {
-          resolve(response.data.data);
+          resolve(response.data.data as IApiAccountInfo);
         })
         .catch((err) => {
           console.log(err);
@@ -72,36 +82,34 @@ export default class ValorantApi {
   }
 
   async linkUser(
-    user: any,
+    user: IApiUser,
     dbUser: IUser,
     force?: boolean
-  ): Promise<[LinkUserResponseTypes, any]> {
+  ): Promise<[LinkUserResponseTypes, IApiUser]> {
     if (user) {
       let valoAccountInfo = dbUser[
-        `${user.data.region}_account`
+        `${user.region}_account`
       ] as IValoAccountInfo;
 
       if (!valoAccountInfo) {
         valoAccountInfo = {} as IValoAccountInfo;
-        dbUser[`${user.data.region}_account`] = valoAccountInfo;
+        dbUser[`${user.region}_account`] = valoAccountInfo;
         await dbUser.save();
-        valoAccountInfo = dbUser[
-          `${user.data.region}_account`
-        ] as IValoAccountInfo;
+        valoAccountInfo = dbUser[`${user.region}_account`] as IValoAccountInfo;
       }
 
       if (valoAccountInfo.puuid && !force) {
-        if (valoAccountInfo.puuid === user.data.puuid) {
+        if (valoAccountInfo.puuid === user.puuid) {
           return [LinkUserResponseTypes.ALREADY_LINKED, user];
         }
 
         return [LinkUserResponseTypes.DIFFERENT_ACCOUNT_LINKED, user];
       } else {
-        valoAccountInfo.puuid = user.data.puuid;
+        valoAccountInfo.puuid = user.puuid;
 
         const eloData = await this.getEloByPuuidAndRegion(
-          user.data.puuid,
-          user.data.region
+          user.puuid,
+          user.region
         );
 
         if (eloData) {
@@ -115,8 +123,8 @@ export default class ValorantApi {
           valoAccountInfo.elo = 0;
           valoAccountInfo.currenttier = 10;
           valoAccountInfo.currenttierpatched = "Estimated: Silver 2";
-          valoAccountInfo.name = user.data.name;
-          valoAccountInfo.tag = user.data.tag;
+          valoAccountInfo.name = user.name;
+          valoAccountInfo.tag = user.tag;
         }
 
         await dbUser.save();
@@ -124,7 +132,7 @@ export default class ValorantApi {
         return [LinkUserResponseTypes.OK, user];
       }
     } else {
-      return [LinkUserResponseTypes.NOT_FOUND, {}];
+      return [LinkUserResponseTypes.NOT_FOUND, undefined];
     }
   }
 
@@ -168,4 +176,20 @@ export enum RefreshUserResponseTypes {
   OK,
   NO_ELO_FOUND,
   NOT_LINKED,
+}
+
+export interface IApiUser {
+  puuid: string;
+  region: string;
+  account_level: number;
+  name: string;
+  tag: string;
+}
+
+export interface IApiAccountInfo {
+  currenttier: number;
+  currenttierpatched: string;
+  elo: number;
+  name: string;
+  tag: string;
 }
