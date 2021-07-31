@@ -101,10 +101,21 @@ export default class InteractionHandler {
                   dbUser[`${tournament.region}_account`];
 
                 if (!userValoAccountInfo) {
+                  const noValoAccountWarning = `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!`;
                   interaction.followUp({
-                    content: `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!\nUse the */link* command to do so.`,
+                    content: `${noValoAccountWarning}\nUse the */link* command to do so, or write me a DM.`,
                     ephemeral: true,
                   });
+                  const dmChannel = await interaction.user.createDM();
+                  dmChannel.send({
+                    content: `${noValoAccountWarning}`,
+                  });
+                  const conversation =
+                    await Conversation.createLinkConversation(
+                      dmChannel as DMChannel,
+                      interaction.user
+                    );
+                  conversation.start();
                   return;
                 }
 

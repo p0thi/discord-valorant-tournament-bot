@@ -19,7 +19,7 @@ services:
       - mongo
   mongo:
     container_name: mongo
-    image: mongo
+    image: mongo:4.4.8-rc0-focal
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=toor # change this while running!
@@ -28,6 +28,7 @@ services:
       - ~/docker_mongodb_data:/data/db
     ports:
       - "27017:27017"
+    command: [--auth]
     logging:
       driver: "json-file"
       options:

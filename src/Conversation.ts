@@ -208,11 +208,12 @@ export default class Conversation {
   async finish(): Promise<void> {
     this.delete();
     await this.onSuccess(this);
-    await this.channel.send(":white_check_mark: ");
+    await this.channel.send("Interaction complete :white_check_mark:");
     this.channel.send(Conversation.helpMessage);
   }
 
   public abort(): void {
+    if (this._deleted) return;
     clearTimeout(this.timeout);
     if (this.actionStack) {
       for (var action of this.actionStack) {
@@ -221,13 +222,15 @@ export default class Conversation {
         }
       }
     }
-    this.channel.send(
-      "The current interaction **has been aborted**. Please start a new one."
-    );
+
     this.delete();
-    this.channel.send(":x: ").then(() => {
-      this.channel.send(Conversation.helpMessage);
-    });
+    this.channel
+      .send(
+        "The current interaction **has been aborted**. Please start a new one. :octagonal_sign:"
+      )
+      .then(() => {
+        this.channel.send(Conversation.helpMessage);
+      });
   }
 
   delete(): void {
@@ -586,8 +589,13 @@ class ActionResponse {
         filter: (m) =>
           m.author.id !== this.question.author.id && !this.conv.deleted,
         max: 1,
-        time: 600000,
+        time: 700000,
       } as AwaitMessagesOptions);
+
+      if (!messages || messages.size === 0) {
+        this.conv.abort();
+        return;
+      }
       this.conv.channel.sendTyping();
 
       const content = messages.first().content;
@@ -599,8 +607,14 @@ class ActionResponse {
     } else if (this.type === QuestionInteractionType.BUTTON) {
       const interaction = await this.question.awaitMessageComponent({
         componentType: "BUTTON",
-        time: 600000,
+        time: 700000,
       });
+
+      if (!interaction) {
+        this.conv.abort();
+        return;
+      }
+
       this.conv.addMessageComponentInteraction(interaction);
 
       const content = (interaction.component as MessageButton).label;
@@ -612,8 +626,14 @@ class ActionResponse {
     } else if (this.type === QuestionInteractionType.SELECT) {
       const interaction = await this.question.awaitMessageComponent({
         componentType: "SELECT_MENU",
-        time: 600000,
+        time: 700000,
       });
+
+      if (!interaction) {
+        this.conv.abort();
+        return;
+      }
+
       this.conv.addMessageComponentInteraction(interaction);
 
       const content = (interaction as SelectMenuInteraction).values[0];
