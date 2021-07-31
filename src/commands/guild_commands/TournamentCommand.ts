@@ -318,12 +318,25 @@ export default class TournamentCommand
                   const { value: tournamentId } =
                     interaction.options.get("tournament");
                   const { value: player } = interaction.options.get("player");
+
                   const dbUserToAdd = await dbManager.getUser({
                     discordId: player,
                   });
-
                   const tournament =
                     dbGuild.tournamentSettings.id(tournamentId);
+
+                  if (
+                    !dbUserToAdd[`${tournament.region}_account`] ||
+                    !dbUserToAdd[`${tournament.region}_account`].puuid
+                  ) {
+                    interaction.followUp({
+                      content:
+                        "That player does not have valorant account linked for that region.",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
                   const tournamentManager = new TournamentManager(
                     this.guild,
                     tournament
