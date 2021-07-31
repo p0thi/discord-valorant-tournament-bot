@@ -1,7 +1,7 @@
 import { Document, Types } from "mongoose";
 
 export default interface IUser extends Document {
-  discordId: `${bigint}`;
+  discordId: string;
   eu_account: IValoAccountInfo;
   ap_account: IValoAccountInfo;
   na_account: IValoAccountInfo;

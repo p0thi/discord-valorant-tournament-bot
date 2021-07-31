@@ -3,7 +3,7 @@ import { CommandPermissionRole } from "../../commands/CustomApplicationCommand";
 import IUser from "./IUser";
 
 export default interface IGuild extends Document {
-  discordId: `${bigint}`;
+  discordId: string;
   setupDone: boolean;
 
   permissions: IGuildPermission[];
@@ -15,8 +15,8 @@ export interface ITournamentSetting extends Types.Subdocument {
   name: string;
   description: string;
   region: "eu" | "na" | "ap" | "kr";
-  channelId: `${bigint}`;
-  messageIds: `${bigint}`[];
+  channelId: string;
+  messageIds: string[];
   teams: Types.DocumentArray<ITournamentTeam>;
   premades: Types.DocumentArray<IPremade>;
   participants: Types.Array<IUser>;
@@ -34,5 +34,5 @@ export interface IPremade extends Types.Subdocument {
 
 export interface IGuildPermission {
   permission: CommandPermissionRole;
-  roleId: `${bigint}`;
+  roleId: string;
 }

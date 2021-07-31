@@ -31,7 +31,7 @@ export default class CustomApplicationCommand extends ApplicationCommand {
   }
 
   static async getPermissions(
-    guildId: `${bigint}`,
+    guildId: string,
     role: CommandPermissionRole
   ): Promise<ApplicationCommandPermissionData[]> {
     const dbGuild = await DatabaseManager.getInstance().getGuild({

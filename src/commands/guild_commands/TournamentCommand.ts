@@ -172,7 +172,7 @@ export default class TournamentCommand
               : []),
           ],
           handler: async (interaction: CommandInteraction) => {
-            const subCommand = interaction.options.getSubCommand();
+            const subCommand = interaction.options.getSubcommand();
 
             interaction.defer({ ephemeral: true });
 
@@ -294,7 +294,7 @@ export default class TournamentCommand
                 }
                 break;
               default: {
-                const group = interaction.options.getSubCommandGroup();
+                const group = interaction.options.getSubcommandGroup();
                 switch (group) {
                   case "edit":
                     {

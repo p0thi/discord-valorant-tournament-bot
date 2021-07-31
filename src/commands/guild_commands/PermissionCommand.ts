@@ -111,7 +111,7 @@ export default class PermissionCommand
           ],
 
           handler: async (interaction: CommandInteraction) => {
-            const subCommand = interaction.options.getSubCommand();
+            const subCommand = interaction.options.getSubcommand();
 
             interaction.defer({ ephemeral: true });
             const dbGuild = await dbManager.getGuild({
