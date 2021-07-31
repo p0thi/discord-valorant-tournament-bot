@@ -97,6 +97,13 @@ export default class InteractionHandler {
                   return;
                 }
 
+                if (tournament.participants.length >= 100) {
+                  interaction.followUp(
+                    ":exclamation: This tournament is full!"
+                  );
+                  return;
+                }
+
                 const userValoAccountInfo =
                   dbUser[`${tournament.region}_account`];
 
@@ -147,47 +154,40 @@ export default class InteractionHandler {
                 const selectMenuInteraction =
                   interaction as SelectMenuInteraction;
 
-                interaction;
-
-                const otherParticipants = selectMenuInteraction.values.filter(
-                  (discordId) => discordId !== dbUser.discordId
-                );
-                // remove existing groups where the user ist the issuer
-                tournament.premades = tournament.premades.filter(
-                  (p) => p.issuer.toString() !== dbUser.id
-                ) as Types.DocumentArray<IPremade>;
-
-                if (selectMenuInteraction.values.includes("none")) {
-                  if (selectMenuInteraction.values.length > 1) {
-                    interaction.followUp({
-                      content:
-                        ":exclamation: You cannot select **NONE** and other participants at once!",
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-                  tournament.premades = tournament.premades.filter(
-                    (p) => p.target.toString() !== dbUser.id
-                  ) as Types.DocumentArray<IPremade>;
-
-                  tournament.premades.addToSet({
-                    issuer: dbUser,
-                    target: undefined,
-                  });
-
-                  await tournament.ownerDocument().save();
-
-                  tournamentManager.tournamentMessage.editAllMessages();
+                if (
+                  !tournament.participants.find(
+                    (p) => p.toString() === dbUser.id.toString()
+                  )
+                ) {
                   interaction.followUp({
-                    content: "You are now excluded from any premade groups.",
+                    content: "You're not in this tournament!",
                     ephemeral: true,
                   });
                   return;
                 }
 
+                const otherParticipants = selectMenuInteraction.values.filter(
+                  (discordId) => discordId !== dbUser.discordId
+                );
+
+                // remove existing groups with the current submitted selection
+                const populatedTournament =
+                  await tournamentManager.populateTournament();
+
+                populatedTournament.premades =
+                  populatedTournament.premades.filter(
+                    (p) =>
+                      p.issuer.toString() !== dbUser.id.toString() &&
+                      !selectMenuInteraction.values.includes(
+                        p.target.discordId.toString()
+                      )
+                  ) as Types.DocumentArray<IPremade>;
+
                 const dbUsers = await Promise.all(
-                  otherParticipants.map(
-                    async (discordId) => await dbManager.getUser({ discordId })
+                  otherParticipants.map((discordId) =>
+                    populatedTournament.participants.find(
+                      (p) => p.discordId === discordId
+                    )
                   )
                 );
 
@@ -205,13 +205,26 @@ export default class InteractionHandler {
                       target: u,
                     } as IPremade)
                 );
-                tournament.premades.addToSet(...premadeObjects);
-                await tournament.ownerDocument().save();
+                populatedTournament.premades.addToSet(...premadeObjects);
+                await populatedTournament.ownerDocument().save();
                 tournamentManager.tournamentMessage.editAllMessages();
               }
               break;
             case "leave_groups":
               {
+                if (
+                  !tournament.participants.find((p) => {
+                    console.log(p, dbUser.id);
+                    return p.toString() === dbUser.id.toString();
+                  })
+                ) {
+                  interaction.followUp({
+                    content: "You're not in this tournament!",
+                    ephemeral: true,
+                  });
+                  return;
+                }
+
                 await InteractionHandler.leaveGroups(dbUser, tournament);
 
                 interaction.followUp({

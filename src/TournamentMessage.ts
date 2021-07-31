@@ -247,10 +247,6 @@ export default class TournamentMessage {
   }
 
   private async premadeMessageContent(): Promise<MessageOptions> {
-    const joinGroupMenu = new MessageSelectMenu().setCustomId(
-      `group_select#${this.uniqueTournamentId}`
-    );
-
     const populatedTournament = await this.parentManager.populateTournament();
 
     const participants = await Promise.all(
@@ -258,6 +254,9 @@ export default class TournamentMessage {
         return await dbManager.getUser({ _id: p });
       })
     );
+
+    let selectMenuRows;
+
     if (populatedTournament.participants.length >= 5) {
       const discordMembers = await this.guild.members.fetch({
         user: participants.map((p) => p.discordId),
@@ -266,53 +265,87 @@ export default class TournamentMessage {
       const labelMaxLength = 25;
       const descriptionMaxLength = 50;
 
-      joinGroupMenu
-        .setPlaceholder("Select your favourite premade group")
-        .setMaxValues(5)
-        .setMinValues(1)
-        .addOptions([
-          {
-            label: "NONE",
-            description: "Select, if you don't want to be in a group at all.",
-            value: "none",
-          },
-          ...participants
-            .map((participant) => {
-              const discordMember = discordMembers.get(participant.discordId);
-              const dbValoAccount = participant[
-                `${this.tournament.region}_account`
-              ] as IValoAccountInfo;
-              let label = `${discordMember.displayName}#${discordMember.user.discriminator}`;
-              label =
-                label.length > labelMaxLength
-                  ? label.substring(0, labelMaxLength - 1) + "…"
-                  : label;
+      const selectOptions = [
+        ...participants
+          .map((participant) => {
+            const discordMember = discordMembers.get(participant.discordId);
+            const dbValoAccount = participant[
+              `${this.tournament.region}_account`
+            ] as IValoAccountInfo;
+            let label = `${discordMember.displayName}#${discordMember.user.discriminator}`;
+            label =
+              label.length > labelMaxLength
+                ? label.substring(0, labelMaxLength - 1) + "…"
+                : label;
 
-              let description = `${dbValoAccount.name}#${dbValoAccount.tag} | ${dbValoAccount.currenttierpatched}`;
-              description =
-                description.length > descriptionMaxLength
-                  ? description.substring(0, descriptionMaxLength - 1) + "…"
-                  : description;
-              return {
-                label,
-                description,
-                value: discordMember.id,
-              };
-            })
-            .sort((a, b) => a.label.localeCompare(b.label)),
+            let description = `${dbValoAccount.name}#${dbValoAccount.tag} | ${dbValoAccount.currenttierpatched}`;
+            description =
+              description.length > descriptionMaxLength
+                ? description.substring(0, descriptionMaxLength - 1) + "…"
+                : description;
+            return {
+              label,
+              description,
+              value: discordMember.id,
+            };
+          })
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      ];
+
+      const perChunk = 25;
+      const selectMenuChunks = selectOptions.reduce(
+        (resultArray, item, index) => {
+          const chunkIndex = Math.floor(index / perChunk);
+
+          if (!resultArray[chunkIndex]) {
+            resultArray[chunkIndex] = [];
+          }
+
+          resultArray[chunkIndex].push(item);
+
+          return resultArray;
+        },
+        []
+      );
+
+      console.log(selectMenuChunks);
+
+      selectMenuRows = selectMenuChunks.map((chunk, i) => {
+        return new MessageActionRow().addComponents([
+          new MessageSelectMenu()
+            .setCustomId(`group_select#${this.uniqueTournamentId}_${i}`)
+            .setPlaceholder(
+              `Select premades` +
+                (selectMenuChunks.length > 1
+                  ? `: ${chunk[0].label.substring(0, 2).toUpperCase()}` +
+                    (chunk.length > 1
+                      ? ` - ${chunk[chunk.length - 1].label
+                          .substring(0, 2)
+                          .toUpperCase()}`
+                      : "")
+                  : "")
+            )
+            .setMinValues(1)
+            .setMaxValues(chunk.length)
+            .addOptions(chunk),
         ]);
+      });
     } else {
-      joinGroupMenu
-        .setPlaceholder("Not enough participants to slect premades...")
-        .setDisabled(true)
-        .addOptions([{ label: "Player", value: "0" }]);
+      selectMenuRows = [
+        new MessageActionRow().addComponents([
+          new MessageSelectMenu()
+            .setCustomId(`group_select#${this.uniqueTournamentId}`)
+            .setPlaceholder("Not enough participants to slect premades...")
+            .setDisabled(true)
+            .addOptions([{ label: "Player", value: "0" }]),
+        ]),
+      ];
     }
 
-    const row1 = new MessageActionRow().addComponents([joinGroupMenu]);
     const row2 = new MessageActionRow().addComponents([
       new MessageButton()
         .setCustomId(`leave_groups#${this.uniqueTournamentId}`)
-        .setLabel("Leave all premade groups")
+        .setLabel("Reset my premade selection")
         .setStyle("SECONDARY"),
     ]);
 
@@ -344,15 +377,6 @@ export default class TournamentMessage {
           name: `${PremateStatusEmoji.get(PremadeStatus.CONFLICT)} Conflict`,
           inline: false,
           value: "None of the players selected premades are in this group.",
-        },
-        // { name: "\u200b", value: "\u200b" },
-        {
-          name: "Players who chose to stay out of any premade groups.",
-          value:
-            populatedTournament.premades
-              .filter((p) => !p.target)
-              .map((p) => `<@${p.issuer.discordId}>`)
-              .join(", ") || "None",
         },
       ],
     };
@@ -439,7 +463,7 @@ export default class TournamentMessage {
 
     return {
       embeds: [embed1, ...groupEmbeds],
-      components: [row1, row2],
+      components: [...selectMenuRows, row2],
     } as MessageOptions;
   }
 
