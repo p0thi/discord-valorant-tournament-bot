@@ -130,6 +130,15 @@ export default class InteractionHandler {
                 await tournament.ownerDocument().save();
                 tournamentManager.tournamentMessage.editAllMessages();
 
+                tournamentManager.tournamentMessage
+                  .getThread()
+                  .then((thread) => {
+                    if (!thread) {
+                      return;
+                    }
+                    thread.members.add(interaction.user);
+                  });
+
                 interaction.followUp({
                   content: "You have joined the tournament!",
                   ephemeral: true,
@@ -142,6 +151,15 @@ export default class InteractionHandler {
                 tournament.participants.remove(dbUser);
                 await tournament.ownerDocument().save();
                 tournamentManager.tournamentMessage.editAllMessages();
+
+                tournamentManager.tournamentMessage
+                  .getThread()
+                  .then((thread) => {
+                    if (!thread) {
+                      return;
+                    }
+                    thread.members.remove(interaction.user.id);
+                  });
 
                 interaction.followUp({
                   content: "You have left the tournament!",

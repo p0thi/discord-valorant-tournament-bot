@@ -243,14 +243,6 @@ export default class TournamentManager {
     }
     return true;
   }
-
-  private async getDatabaseUserByObjectId(objectId: string): Promise<IUser> {
-    if (this._participantDbUsers.has(objectId)) {
-      return this._participantDbUsers.get(objectId);
-    }
-    const dbUser = await dbManager.getUser({ _id: objectId });
-    this._participantDbUsers.set(objectId, dbUser);
-  }
 }
 
 class PremadeParticipant {

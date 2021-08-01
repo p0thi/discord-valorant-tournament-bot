@@ -5,7 +5,6 @@ import {
   Guild,
   Snowflake,
 } from "discord.js";
-import { RawApplicationCommandData } from "discord.js/typings/rawDataTypes";
 import DatabaseManager from "../db/DatabaseManager";
 
 export enum CommandPermissionRole {
@@ -20,7 +19,7 @@ export default class CustomApplicationCommand extends ApplicationCommand {
 
   constructor(
     client: Client,
-    data: RawApplicationCommandData,
+    data: any,
     handler: (Interaction: any) => Promise<void>,
     guild?: Guild,
     guildData?: Snowflake,

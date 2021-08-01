@@ -33,6 +33,7 @@ const tournamentSettingsSchema: Schema = new Schema(
     },
     channelId: { type: String, required: true },
     messageIds: [{ type: String, required: false }],
+    mainMessageId: { type: String, required: false },
     teams: [tournamentTeamSchema],
     premades: [premadesSchema],
     participants: [

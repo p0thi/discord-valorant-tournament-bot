@@ -1,7 +1,10 @@
 import {
+  Collection,
   EmbedField,
   Guild,
   GuildChannel,
+  GuildMember,
+  LimitedCollection,
   Message,
   MessageActionRow,
   MessageButton,
@@ -10,6 +13,7 @@ import {
   MessageOptions,
   MessageSelectMenu,
   TextChannel,
+  ThreadChannel,
 } from "discord.js";
 import { MessageButtonStyles } from "discord.js/typings/enums";
 import DatabaseManager from "./db/DatabaseManager";
@@ -22,23 +26,25 @@ import TournamentManager, {
 import emojis from "./util/emojis";
 
 const dbManager = DatabaseManager.getInstance();
-type messagesArray = [Message, Message];
 
 export default class TournamentMessage {
-  private static _messageInstances = new Map<string, messagesArray>();
+  private static _threadMessageInstances = new Map<string, Message[]>();
+  private static _mainMessageInstances = new Map<string, Message>();
+  private static _editMessagesQueues = new Map<string, Queue>();
 
   guild: Guild;
   tournament: ITournamentSetting;
   parentManager: TournamentManager;
 
-  private _messages: messagesArray = [undefined, undefined];
-  private key: string;
+  private _threadMessages: Message[];
+  private _mainMessage: Message;
 
   get uniqueTournamentId(): string {
     return `${this.guild.id}_${this.tournament.id}`;
   }
 
-  private waitingForMessages: Array<(result: messagesArray) => void> = [];
+  private waitingForThreadMessages: Array<(result: Message[]) => void> = [];
+  private waitingForMainMessage: Array<(result: Message) => void> = [];
 
   constructor(
     guild: Guild,
@@ -49,121 +55,274 @@ export default class TournamentMessage {
     this.tournament = tournament;
     this.parentManager = manager;
 
-    this.key = `${guild.id}-${tournament.id}`;
+    if (!TournamentMessage._editMessagesQueues.has(this.uniqueTournamentId)) {
+      TournamentMessage._editMessagesQueues.set(
+        this.uniqueTournamentId,
+        new Queue()
+      );
+    }
 
     this.fetchOrCreateMessages();
   }
 
   private async fetchOrCreateMessages() {
-    if (!TournamentMessage._messageInstances.has(this.key)) {
-      TournamentMessage._messageInstances.set(this.key, [undefined, undefined]);
+    if (!this.tournament) {
+      return;
     }
+    let result: Message;
 
-    const result: messagesArray = [undefined, undefined];
-
-    for (let i = 0; i < result.length; i++) {
-      const messageInstance = TournamentMessage._messageInstances.get(this.key)[
-        i
-      ];
-      if (messageInstance) {
-        result[i] = messageInstance;
-        continue;
-      } else if (
-        this.tournament.messageIds &&
-        this.tournament.messageIds.length > i
-      ) {
-        let message;
-        try {
-          message = await (
-            this.guild.channels.cache.get(
-              this.tournament.channelId
-            ) as TextChannel
-          ).messages.fetch(this.tournament.messageIds[i]);
-        } catch (e) {
-          result[i] = await this.createMessage(i);
-          continue;
-        }
-
-        if (message) {
-          result[i] = message;
-          continue;
-        } else {
-          result[i] = await this.createMessage(i);
-          continue;
-        }
-      } else {
-        result[i] = await this.createMessage(i);
-        continue;
+    if (
+      TournamentMessage._mainMessageInstances.has(this.uniqueTournamentId) &&
+      TournamentMessage._mainMessageInstances.get(this.uniqueTournamentId)
+    ) {
+      result = TournamentMessage._mainMessageInstances.get(
+        this.uniqueTournamentId
+      );
+    } else if (this.tournament.mainMessageId) {
+      let message;
+      try {
+        message = await (
+          this.guild.channels.cache.get(
+            this.tournament.channelId
+          ) as TextChannel
+        ).messages.fetch(this.tournament.mainMessageId);
+      } catch (e) {
+        message = await this.createMainMessage();
       }
+
+      if (message) {
+        result = message;
+      } else {
+        result = await this.createMainMessage();
+      }
+    } else {
+      result = await this.createMainMessage();
     }
 
-    let shouldSaveDocument = !result.every(
-      (message, index) =>
-        this.tournament.messageIds &&
-        this.tournament.messageIds.length === result.length &&
-        message.id === this.tournament.messageIds[index]
-    );
-
-    if (shouldSaveDocument) {
-      this.tournament.messageIds = result.map((m) => m.id);
+    this.mainMessage = result;
+    if (this.tournament.mainMessageId !== result.id) {
+      this.tournament.mainMessageId = result.id;
       await this.tournament.ownerDocument().save();
     }
-    this.messages = result as messagesArray;
+
+    this.editAllMessages();
+    // this.messages = result as Message[];
   }
 
-  public getMessages(): Promise<messagesArray> {
-    const result = new Promise<messagesArray>((resolve, reject) => {
-      if (this._messages && this._messages.every((m) => !!m)) {
-        resolve(this._messages);
-      } else {
-        this.waitingForMessages.push(resolve);
+  async getThread(): Promise<ThreadChannel> {
+    const mainMessage = await this.getMainMessage();
+    if (!mainMessage) {
+      return;
+    }
+    const thread = await this.getThreadFromMessage(mainMessage);
+    return thread;
+  }
+
+  async getThreadFromMessage(message: Message): Promise<ThreadChannel> {
+    let result;
+    if (message.hasThread) {
+      result = message.thread;
+    } else {
+      try {
+        result = await message.startThread({
+          name: this.parentManager.tournament.name,
+          autoArchiveDuration: message.guild.features.includes(
+            "SEVEN_DAY_THREAD_ARCHIVE"
+          )
+            ? 10080
+            : message.guild.features.includes("THREE_DAY_THREAD_ARCHIVE")
+            ? 4320
+            : 1440,
+        });
+      } catch (e) {
+        try {
+          return (await message.fetch(true)).thread;
+        } catch (e) {
+          return undefined;
+        }
       }
-    });
+    }
     return result;
   }
 
-  private set messages(value: messagesArray) {
-    this._messages = value;
-    TournamentMessage._messageInstances.set(this.key, value);
-    this.waitingForMessages.forEach((observer) => observer(value));
+  private async getMainMessage(): Promise<Message> {
+    return new Promise<Message>((resolve, reject) => {
+      if (
+        TournamentMessage._mainMessageInstances.has(this.uniqueTournamentId)
+      ) {
+        resolve(
+          TournamentMessage._mainMessageInstances.get(this.uniqueTournamentId)
+        );
+        return;
+      }
+      this.waitingForMainMessage.push(resolve);
+    });
   }
 
-  private async createMessage(index: number): Promise<Message> {
-    switch (index) {
-      case 0:
-        return await (
-          this.guild.channels.cache.get(
-            this.tournament.channelId
-          ) as TextChannel
-        ).send(await this.mainMessageContent());
-      case 1:
-        return await (
-          this.guild.channels.cache.get(
-            this.tournament.channelId
-          ) as TextChannel
-        ).send(await this.premadeMessageContent());
-    }
+  private async getThreadMessages(): Promise<Message[]> {
+    return new Promise<Message[]>(async (resolve, reject) => {
+      const result = [];
+      if (
+        TournamentMessage._threadMessageInstances.has(this.uniqueTournamentId)
+      ) {
+        result.push(
+          ...TournamentMessage._threadMessageInstances.get(
+            this.uniqueTournamentId
+          )
+        );
+      }
+      if (this.tournament.messageIds && this.tournament.messageIds.length > 0) {
+        const mainMessage = await this.getMainMessage();
+        if (!mainMessage) {
+          this.waitingForThreadMessages.push(resolve);
+          return;
+        }
+        const thread = await this.getThreadFromMessage(mainMessage);
+        for (const id of this.tournament.messageIds) {
+          try {
+            const message = await thread.messages.fetch(id);
+            if (!result.find((m) => m.id === message.id)) {
+              result.push(message);
+              TournamentMessage._threadMessageInstances
+                .get(this.uniqueTournamentId)
+                .push(message);
+            }
+          } catch (e) {}
+        }
+      }
+      if (
+        !this.tournament.messageIds ||
+        this.tournament.messageIds.length !== result.length ||
+        !this.tournament.messageIds.every((id) =>
+          result.find((m) => m.id === id)
+        )
+      ) {
+        this.tournament.messageIds = result.map((m) => m.id);
+        await this.tournament.ownerDocument().save();
+      }
+
+      resolve(result);
+      this.threadMessages = result;
+      return;
+    });
   }
 
-  async editAllMessages() {
-    const messages = await this.getMessages();
-    this.editMainMessage(messages[0]);
-    this.editPremadeMessage(messages[1]);
+  private set threadMessages(value: Message[]) {
+    this._threadMessages = value;
+    TournamentMessage._threadMessageInstances.set(
+      this.uniqueTournamentId,
+      value
+    );
+    this.waitingForThreadMessages.forEach((observer) => observer(value));
   }
 
-  async editMainMessage(message: Message) {
-    message.edit(await this.mainMessageContent());
-    message.suppressEmbeds(false);
+  private set mainMessage(value: Message) {
+    this._mainMessage = value;
+    TournamentMessage._mainMessageInstances.set(this.uniqueTournamentId, value);
+    this.waitingForMainMessage.forEach((observer) => observer(value));
   }
 
-  async editPremadeMessage(message: Message) {
-    message.edit(await this.premadeMessageContent());
-    message.suppressEmbeds(false);
+  private async createMainMessage(): Promise<Message> {
+    const channel = this.guild.channels.cache.get(
+      this.tournament.channelId
+    ) as TextChannel;
+    const content = await this.mainMessageContent();
+    const message = await channel.send(content);
+    return message;
   }
 
-  async deleteAllMessages() {
-    const messages = await this.getMessages();
-    await Promise.all(messages.map((m) => m.delete()));
+  editAllMessages() {
+    TournamentMessage._editMessagesQueues
+      .get(this.uniqueTournamentId)
+      .add(async () => {
+        if (!(await this.parentManager.populateTournament())) {
+          return;
+        }
+
+        try {
+          const mainMessage = await this.getMainMessage();
+          await mainMessage.edit(await this.mainMessageContent());
+          mainMessage.suppressEmbeds(false);
+
+          if (
+            (
+              (await this.guild.channels.fetch(
+                this.tournament.channelId
+              )) as TextChannel
+            )
+              .permissionsFor(this.guild.client.user)
+              .has("MANAGE_MESSAGES")
+          ) {
+            mainMessage.pin();
+          }
+
+          const threadMessages = await this.getThreadMessages();
+
+          const messageOptions = [...(await this.premadeMessageContent())];
+
+          for (let i = 0; i < messageOptions.length; i++) {
+            let newThreadMessages: Message[] = [];
+            const thread = await this.getThreadFromMessage(mainMessage);
+            if (threadMessages.length > i) {
+              newThreadMessages.push(
+                await threadMessages[i].edit(messageOptions[i])
+              );
+            } else {
+              const createdMessage = await thread.send(messageOptions[i]);
+              this.threadMessages = [...this._threadMessages, createdMessage];
+
+              newThreadMessages.push(createdMessage);
+              threadMessages.push(createdMessage);
+            }
+            newThreadMessages.forEach((m) => {
+              m.suppressEmbeds(false);
+              if (
+                thread
+                  .permissionsFor(this.guild.client.user)
+                  .has("MANAGE_MESSAGES")
+              ) {
+                m.pin();
+              }
+            });
+          }
+
+          this.threadMessages = threadMessages;
+          if (
+            !this.tournament.messageIds ||
+            this.tournament.messageIds.length !== threadMessages.length ||
+            !this.tournament.messageIds.every((id) =>
+              threadMessages.find((m) => m.id === id)
+            )
+          ) {
+            this.tournament.messageIds = threadMessages.map((m) => m.id);
+            await this.tournament.ownerDocument().save();
+          }
+        } catch (e) {
+          console.error("Could not edit messages!");
+        }
+      });
+  }
+
+  async deleteAllMessages(): Promise<Message[]> {
+    const mainMessage = await this.getMainMessage();
+
+    const threadMessages = await this.getThreadMessages();
+    this.getThreadFromMessage(mainMessage).then((thread) => {
+      try {
+        thread
+          .delete("Messages got deleted")
+          .catch((e) => console.error("could not delete thread"));
+      } catch (e) {
+        return undefined;
+      }
+    });
+    mainMessage.delete();
+    threadMessages.forEach((m) =>
+      m
+        .delete()
+        .catch((e) => console.error("could not delete a tournament message."))
+    );
+    return [mainMessage, ...threadMessages];
   }
 
   private async mainMessageContent(): Promise<MessageOptions> {
@@ -179,13 +338,16 @@ export default class TournamentMessage {
     ]);
 
     const participants = await Promise.all(
-      this.tournament.participants.map((participant) => {
-        return dbManager.getUser({ _id: participant });
-      })
+      this.tournament.participants.map((participant) =>
+        dbManager.getUser({ _id: participant })
+      )
     );
-    const participantMembers = await this.guild.members.fetch({
-      user: participants.map((participant) => participant.discordId),
-    });
+    const participantMembers: Collection<string, GuildMember> =
+      participants.length > 0
+        ? await this.guild.members.fetch({
+            user: participants.map((participant) => participant.discordId),
+          })
+        : new Collection();
 
     const embed1 = {
       title: this.tournament.name,
@@ -245,7 +407,7 @@ export default class TournamentMessage {
     } as MessageOptions;
   }
 
-  private async premadeMessageContent(): Promise<MessageOptions> {
+  private async premadeMessageContent(): Promise<MessageOptions[]> {
     const populatedTournament = await this.parentManager.populateTournament();
 
     const participants = await Promise.all(
@@ -306,8 +468,6 @@ export default class TournamentMessage {
         },
         []
       );
-
-      console.log(selectMenuChunks);
 
       selectMenuRows = selectMenuChunks.map((chunk, i) => {
         return new MessageActionRow().addComponents([
@@ -460,10 +620,12 @@ export default class TournamentMessage {
       }
     );
 
-    return {
-      embeds: [embed1, ...groupEmbeds],
-      components: [...selectMenuRows, row2],
-    } as MessageOptions;
+    return [
+      {
+        embeds: [embed1, ...groupEmbeds],
+        components: [...selectMenuRows, row2],
+      } as MessageOptions,
+    ];
   }
 
   getDbUserMaxElo(dbUser: IUser): IValoAccountInfo {
@@ -481,5 +643,53 @@ export default class TournamentMessage {
     }
 
     return currentResult;
+  }
+}
+
+class Queue {
+  running: () => void;
+  autorun: boolean;
+  queue: (() => void)[];
+
+  constructor(autorun = true, queue: (() => Promise<any>)[] = []) {
+    this.running = undefined;
+    this.autorun = autorun;
+    this.queue = queue;
+  }
+
+  add(cb: () => Promise<any>) {
+    this.queue.push(() => {
+      const finished = new Promise(async (resolve, reject) => {
+        const callbackResponse = await cb();
+
+        if (callbackResponse !== false) {
+          resolve(callbackResponse);
+        } else {
+          reject(callbackResponse);
+        }
+      });
+
+      finished.then(this.dequeue.bind(this), () => {});
+    });
+
+    if (this.autorun && !this.running) {
+      this.dequeue();
+    }
+
+    return this;
+  }
+
+  dequeue() {
+    this.running = this.queue.shift();
+
+    if (this.running) {
+      this.running();
+    }
+
+    return this.running;
+  }
+
+  get next() {
+    return this.dequeue;
   }
 }

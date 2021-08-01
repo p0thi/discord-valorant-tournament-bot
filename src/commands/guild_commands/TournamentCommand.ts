@@ -1,4 +1,10 @@
-import { CommandInteraction, Guild, TextChannel } from "discord.js";
+import {
+  CommandInteraction,
+  Guild,
+  Snowflake,
+  TextChannel,
+  UserResolvable,
+} from "discord.js";
 import DatabaseManager from "../../db/DatabaseManager";
 import IGuild, { ITournamentSetting } from "../../db/interfaces/IGuild";
 import InteractionHandler from "../../handlers/InteractionHandler";
@@ -225,6 +231,20 @@ export default class TournamentCommand
                     return;
                   }
 
+                  if (
+                    !channel
+                      .permissionsFor(botMember)
+                      .has("USE_PUBLIC_THREADS") ||
+                    !channel.permissionsFor(botMember).has("MANAGE_THREADS")
+                  ) {
+                    interaction.followUp({
+                      content:
+                        ":x: I don't have the permission to use/manage public threads.\n(Needed to create/delete threads od tournaments)",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
                   let tournament = {
                     name,
                     region,
@@ -232,7 +252,7 @@ export default class TournamentCommand
                   } as ITournamentSetting;
 
                   dbGuild.tournamentSettings.push(tournament);
-                  dbGuild.save();
+                  await dbGuild.save();
                   tournament = dbGuild.tournamentSettings.find(
                     (t) => t.name === name && t.region === region
                   );
@@ -242,15 +262,17 @@ export default class TournamentCommand
                     tournament
                   );
 
-                  interaction.followUp({
-                    content: `Tournament created: **${name}**`,
-                    ephemeral: true,
-                  });
-                  const messages =
-                    await tournamentManager.tournamentMessage.getMessages();
-                  tournament.messageIds = messages.map((m) => m.id);
                   await dbGuild.save();
                   this.notifyObservers();
+
+                  interaction.followUp({
+                    content: `Tournament created: **${name}**${
+                      !channel.permissionsFor(botMember).has("MANAGE_MESSAGES")
+                        ? "\n`I could automatically pin my messages if I had the permission to manage messages.` :blush:"
+                        : ""
+                    }`,
+                    ephemeral: true,
+                  });
                 }
                 break;
               case "delete":
@@ -262,10 +284,21 @@ export default class TournamentCommand
                     (t) => t.id === tournament
                   );
 
-                  await new TournamentManager(
+                  const deletedMessages = await new TournamentManager(
                     this.guild,
                     dbGuild.tournamentSettings[tournamentIndex]
                   ).tournamentMessage.deleteAllMessages();
+                  await dbGuild.save();
+
+                  if (!deletedMessages) {
+                    interaction.followUp({
+                      content:
+                        ":x: Could not delete tournament messages. Maybe Permission for thread channels missing?",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
                   dbGuild.tournamentSettings.splice(tournamentIndex, 1);
                   await dbGuild.save();
                   this.notifyObservers();
@@ -306,6 +339,15 @@ export default class TournamentCommand
                   await tournament.ownerDocument().save();
 
                   tournamentManager.tournamentMessage.editAllMessages();
+
+                  tournamentManager.tournamentMessage
+                    .getThread()
+                    .then((thread) => {
+                      if (!thread) {
+                        return;
+                      }
+                      thread.members.remove(player as Snowflake);
+                    });
 
                   interaction.followUp({
                     content: `Player <@${dbUserToKick.discordId}> kicked.`,
@@ -362,6 +404,15 @@ export default class TournamentCommand
                   await tournament.ownerDocument().save();
 
                   tournamentManager.tournamentMessage.editAllMessages();
+
+                  tournamentManager.tournamentMessage
+                    .getThread()
+                    .then((thread) => {
+                      if (!thread) {
+                        return;
+                      }
+                      thread.members.add(player as Snowflake);
+                    });
 
                   interaction.followUp({
                     content: `Player <@${dbUserToAdd.discordId}> added.`,
