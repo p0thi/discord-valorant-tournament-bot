@@ -6,6 +6,7 @@ import {
   InteractionCollector,
   Message,
   MessageActionRow,
+  MessageActionRowComponent,
   MessageButton,
   MessageComponentInteraction,
   MessageEmbed,
@@ -509,7 +510,9 @@ export class ConversationAction {
 
     const cancelPresent = content.components.find(
       (row) =>
-        !!row.components.find((c) => c.customId === "conversation-cancel")
+        !!(row.components as MessageActionRowComponent[]).find(
+          (c) => c.customId === "conversation-cancel"
+        )
     );
     if (!cancelPresent) {
       for (const comp of content.components) {
