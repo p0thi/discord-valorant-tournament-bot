@@ -239,7 +239,7 @@ export default class TournamentCommand
                   ) {
                     interaction.followUp({
                       content:
-                        ":x: I don't have the permission to use/manage public threads.\n(Needed to create/delete threads od tournaments)",
+                        ":x: I don't have the permission to use/manage public threads.\n(Needed to create/delete threads of tournaments).",
                       ephemeral: true,
                     });
                     return;

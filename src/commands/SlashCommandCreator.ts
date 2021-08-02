@@ -235,7 +235,7 @@ export default abstract class SlashCommandCreator {
                 {
                   name: "/link",
                   value:
-                    "Tell the bot your valo account. it automatically detects the server region of that account.",
+                    "Tell the bot your Valorant account. It automatically detects the server region of that account.",
                 },
                 {
                   name: "/refresh",
