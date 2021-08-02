@@ -250,8 +250,9 @@ export default class TournamentMessageManager {
     const content = await new TournamentMainMessage().create(
       this,
       await this.parentManager.populateTournament()
-    )[0];
-    const message = await channel.send(content);
+    );
+    console.log("CONTENT", content);
+    const message = await channel.send(content[0]);
     return message;
   }
 
@@ -268,12 +269,11 @@ export default class TournamentMessageManager {
 
         try {
           const mainMessage = await this.getMainMessage();
-          await mainMessage.edit(
-            await new TournamentMainMessage().create(
-              this,
-              populatedTournament
-            )[0]
+          const mainMessageContent = await new TournamentMainMessage().create(
+            this,
+            populatedTournament
           );
+          await mainMessage.edit(mainMessageContent[0]);
           mainMessage.suppressEmbeds(false);
 
           if (

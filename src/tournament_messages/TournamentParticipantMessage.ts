@@ -15,15 +15,12 @@ export default class TournamentParticipantMessage
     tournamentManager: TournamentMessageManager,
     populatedTournament: ITournamentSetting
   ): Promise<MessageOptions[]> {
-    const participants = await Promise.all(
-      populatedTournament.participants.map((participant) =>
-        dbManager.getUser({ _id: participant })
-      )
-    );
     const participantMembers: Collection<string, GuildMember> =
-      participants.length > 0
+      populatedTournament.participants.length > 0
         ? await tournamentManager.guild.members.fetch({
-            user: participants.map((participant) => participant.discordId),
+            user: populatedTournament.participants.map(
+              (participant) => participant.discordId
+            ),
           })
         : new Collection();
 
@@ -35,11 +32,11 @@ export default class TournamentParticipantMessage
         {
           name: `Participants:`,
           value:
-            participants.length > 0
+            populatedTournament.participants.length > 0
               ? "\n" +
                 participantMembers
                   .map((participant, index) => {
-                    const user = participants.find(
+                    const user = populatedTournament.participants.find(
                       (p) => p.discordId === index
                     );
                     const valoAccountInfo = tournamentManager.getDbUserMaxElo(

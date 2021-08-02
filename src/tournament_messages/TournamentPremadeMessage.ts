@@ -22,24 +22,18 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
     tournamentManager: TournamentMessageManager,
     populatedTournament: ITournamentSetting
   ): Promise<MessageOptions[]> {
-    const participants = await Promise.all(
-      populatedTournament.participants.map(async (p) => {
-        return await dbManager.getUser({ _id: p.id });
-      })
-    );
-
     let selectMenuRows;
 
     if (populatedTournament.participants.length >= 5) {
       const discordMembers = await tournamentManager.guild.members.fetch({
-        user: participants.map((p) => p.discordId),
+        user: populatedTournament.participants.map((p) => p.discordId),
       });
 
       const labelMaxLength = 25;
       const descriptionMaxLength = 50;
 
       const selectOptions = [
-        ...participants
+        ...populatedTournament.participants
           .map((participant) => {
             const discordMember = discordMembers.get(participant.discordId);
             const dbValoAccount = participant[
@@ -154,9 +148,10 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       ],
     };
 
-    const participantHighestValorantAccounts = participants.map(
-      (p) => tournamentManager.getDbUserMaxElo(p) as IValoAccountInfo
-    );
+    const participantHighestValorantAccounts =
+      populatedTournament.participants.map(
+        (p) => tournamentManager.getDbUserMaxElo(p) as IValoAccountInfo
+      );
 
     const allParticipantsAverageElo =
       participantHighestValorantAccounts
@@ -169,7 +164,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       const availablePremades = g.filter((p) => p.status < 1);
       const nonAvailablePremades = g.filter((p) => p.status >= 1);
 
-      const groupParticipants = participants.filter((p) =>
+      const groupParticipants = populatedTournament.participants.filter((p) =>
         availablePremades.find((x) => x.participant.discordId === p.discordId)
       );
 

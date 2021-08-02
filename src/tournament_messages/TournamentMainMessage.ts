@@ -29,18 +29,6 @@ export default class TournamentMainMessage implements ITournamentMessage {
         .setStyle("DANGER"),
     ]);
 
-    const participants = await Promise.all(
-      populatedTournament.participants.map((participant) =>
-        dbManager.getUser({ _id: participant })
-      )
-    );
-    const participantMembers: Collection<string, GuildMember> =
-      participants.length > 0
-        ? await tournametMessage.guild.members.fetch({
-            user: participants.map((participant) => participant.discordId),
-          })
-        : new Collection();
-
     const embed1 = {
       title: populatedTournament.name,
       author: {
@@ -59,23 +47,24 @@ export default class TournamentMainMessage implements ITournamentMessage {
             populatedTournament.participants.length
           }\nAverage Elo: ${
             Math.ceil(
-              participants
+              populatedTournament.participants
                 .map((p) => {
                   const elo = tournametMessage.getDbUserMaxElo(p)?.elo || 0;
                   return elo > 0 ? elo : 750;
                 })
-                .reduce((a, b) => a + b, 0) / participants.length
+                .reduce((a, b) => a + b, 0) /
+                populatedTournament.participants.length
             ) || 0
           }`,
         },
       ],
     };
 
-    return [
-      {
-        embeds: [embed1],
-        components: [row1],
-      } as MessageOptions,
-    ];
+    const result = {
+      embeds: [embed1],
+      components: [row1],
+    } as MessageOptions;
+
+    return [result];
   }
 }
