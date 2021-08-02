@@ -9,7 +9,7 @@ import DatabaseManager from "../../db/DatabaseManager";
 import IGuild, { ITournamentSetting } from "../../db/interfaces/IGuild";
 import InteractionHandler from "../../handlers/InteractionHandler";
 import TournamentManager from "../../managers/TournamentManager";
-import TournamentMessage from "../../TournamentMessage";
+import TournamentMessageManager from "../../managers/TournamentMessageManager";
 import CustomApplicationCommand, {
   CommandPermissionRole,
 } from "../CustomApplicationCommand";

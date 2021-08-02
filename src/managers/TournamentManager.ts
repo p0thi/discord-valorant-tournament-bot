@@ -4,21 +4,21 @@ import { Types } from "mongoose";
 import DatabaseManager from "../db/DatabaseManager";
 import IGuild, { IPremade, ITournamentSetting } from "../db/interfaces/IGuild";
 import IUser from "../db/interfaces/IUser";
-import TournamentMessage from "../TournamentMessage";
+import TournamentMessageManager from "./TournamentMessageManager";
 
 const dbManager = DatabaseManager.getInstance();
 
 export default class TournamentManager {
   guild: Guild;
   tournament: ITournamentSetting;
-  tournamentMessage: TournamentMessage;
+  tournamentMessage: TournamentMessageManager;
 
   private _participantDbUsers: Map<string, IUser> = new Map();
 
   constructor(guild: Guild, tournament: ITournamentSetting) {
     this.guild = guild;
     this.tournament = tournament;
-    this.tournamentMessage = new TournamentMessage(
+    this.tournamentMessage = new TournamentMessageManager(
       this.guild,
       this.tournament,
       this

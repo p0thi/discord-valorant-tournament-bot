@@ -2,7 +2,7 @@ import { Client, Guild } from "discord.js";
 import SlashCommandCreator from "../commands/SlashCommandCreator";
 import DatabaseManager from "../db/DatabaseManager";
 import IGuild from "../db/interfaces/IGuild";
-import TournamentMessage from "../TournamentMessage";
+import TournamentMessageManager from "./TournamentMessageManager";
 import emojis from "../util/emojis";
 import SlashCommandManager from "./SlashCommandManager";
 import TournamentManager from "./TournamentManager";

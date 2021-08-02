@@ -11,7 +11,7 @@ import DatabaseManager from "../db/DatabaseManager";
 import { IPremade, ITournamentSetting } from "../db/interfaces/IGuild";
 import IUser from "../db/interfaces/IUser";
 import TournamentManager from "../managers/TournamentManager";
-import TournamentMessage from "../TournamentMessage";
+import TournamentMessageManager from "../managers/TournamentMessageManager";
 
 const dbManager = DatabaseManager.getInstance();
 const idDegex = /([^#]*\S*)#{1}(\d+)_([a-f0-9]+)/s;
