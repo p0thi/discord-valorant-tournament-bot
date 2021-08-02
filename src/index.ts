@@ -35,6 +35,16 @@ databaseManager.connect();
 
 bot.on("ready", () => {
   log.info(`Logged in as ${bot.user.tag}`);
+
+  const statusSetter = () => {
+    bot.user.setActivity("/help", {
+      type: "LISTENING",
+    });
+  };
+
+  statusSetter();
+  setInterval(statusSetter, 1800000);
+
   slashCommandManager.start();
   guildManager.start();
 });
