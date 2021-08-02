@@ -276,18 +276,6 @@ export default class TournamentMessageManager {
           await mainMessage.edit(mainMessageContent[0]);
           mainMessage.suppressEmbeds(false);
 
-          if (
-            (
-              (await this.guild.channels.fetch(
-                this.tournament.channelId
-              )) as TextChannel
-            )
-              .permissionsFor(this.guild.client.user)
-              .has("MANAGE_MESSAGES")
-          ) {
-            mainMessage.pin();
-          }
-
           const threadMessages = await this.getThreadMessages();
 
           const messageOptions = [
@@ -301,9 +289,9 @@ export default class TournamentMessageManager {
             )),
           ];
 
+          let newThreadMessages: Message[] = [];
+          const thread = await this.getThreadFromMessage(mainMessage);
           for (let i = 0; i < messageOptions.length; i++) {
-            let newThreadMessages: Message[] = [];
-            const thread = await this.getThreadFromMessage(mainMessage);
             if (threadMessages.length > i) {
               newThreadMessages.push(
                 await threadMessages[i].edit(messageOptions[i])
@@ -315,17 +303,29 @@ export default class TournamentMessageManager {
               newThreadMessages.push(createdMessage);
               threadMessages.push(createdMessage);
             }
-            newThreadMessages.forEach((m) => {
-              m.suppressEmbeds(false);
-              if (
-                thread
-                  .permissionsFor(this.guild.client.user)
-                  .has("MANAGE_MESSAGES")
-              ) {
-                m.pin();
-              }
-            });
           }
+
+          if (
+            (
+              (await this.guild.channels.fetch(
+                this.tournament.channelId
+              )) as TextChannel
+            )
+              .permissionsFor(this.guild.client.user)
+              .has("MANAGE_MESSAGES")
+          ) {
+            mainMessage.pin();
+          }
+          newThreadMessages.forEach((m) => {
+            m.suppressEmbeds(false);
+            if (
+              thread
+                .permissionsFor(this.guild.client.user)
+                .has("MANAGE_MESSAGES")
+            ) {
+              m.pin();
+            }
+          });
 
           this.threadMessages = threadMessages;
           if (
