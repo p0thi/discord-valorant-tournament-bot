@@ -125,7 +125,9 @@ export default class TournamentMessage {
     } else {
       try {
         result = await message.startThread({
-          name: this.parentManager.tournament.name,
+          name: `${this.tournament.region.toUpperCase()} - ${
+            this.tournament.name
+          }`,
           autoArchiveDuration: message.guild.features.includes(
             "SEVEN_DAY_THREAD_ARCHIVE"
           )
