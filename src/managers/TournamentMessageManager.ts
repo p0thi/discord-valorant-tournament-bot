@@ -129,7 +129,7 @@ export default class TournamentMessageManager {
   }
 
   async getThreadFromMessage(message: Message): Promise<ThreadChannel> {
-    let result;
+    let result: ThreadChannel;
     if (message.hasThread) {
       result = message.thread;
     } else {
@@ -146,6 +146,7 @@ export default class TournamentMessageManager {
             ? 4320
             : 1440,
         });
+        result.setRateLimitPerUser(180);
       } catch (e) {
         try {
           return (await message.fetch(true)).thread;
@@ -154,6 +155,7 @@ export default class TournamentMessageManager {
         }
       }
     }
+
     return result;
   }
 
@@ -251,7 +253,6 @@ export default class TournamentMessageManager {
       this,
       await this.parentManager.populateTournament()
     );
-    console.log("CONTENT", content);
     const message = await channel.send(content[0]);
     return message;
   }
@@ -263,12 +264,17 @@ export default class TournamentMessageManager {
         if (!(await this.parentManager.populateTournament())) {
           return;
         }
+        const mainMessage = await this.getMainMessage();
+        const thread = await this.getThreadFromMessage(mainMessage);
+
+        if (thread.archived) {
+          return;
+        }
 
         const populatedTournament =
           await this.parentManager.populateTournament();
 
         try {
-          const mainMessage = await this.getMainMessage();
           const mainMessageContent = await new TournamentMainMessage().create(
             this,
             populatedTournament
@@ -290,7 +296,6 @@ export default class TournamentMessageManager {
           ];
 
           let newThreadMessages: Message[] = [];
-          const thread = await this.getThreadFromMessage(mainMessage);
           for (let i = 0; i < messageOptions.length; i++) {
             if (threadMessages.length > i) {
               newThreadMessages.push(
@@ -345,24 +350,22 @@ export default class TournamentMessageManager {
   }
 
   async deleteAllMessages(): Promise<Message[]> {
-    const mainMessage = await this.getMainMessage();
-
-    const threadMessages = await this.getThreadMessages();
-    const thread = await this.getThreadFromMessage(mainMessage);
     try {
+      const mainMessage = await this.getMainMessage();
+
+      const threadMessages = await this.getThreadMessages();
+      const thread = await this.getThreadFromMessage(mainMessage);
+      mainMessage.delete();
+      await Promise.allSettled(
+        threadMessages.map((m) => m.edit({ components: [] }))
+      );
       thread
-        .delete("Messages got deleted")
+        .setArchived(true)
         .catch((e) => console.error("could not delete thread"));
+      return [mainMessage, ...threadMessages];
     } catch (e) {
       return undefined;
     }
-    mainMessage.delete();
-    threadMessages.forEach((m) =>
-      m
-        .delete()
-        .catch((e) => console.error("could not delete a tournament message."))
-    );
-    return [mainMessage, ...threadMessages];
   }
 
   getDbUserMaxElo(dbUser: IUser): IValoAccountInfo {
