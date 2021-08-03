@@ -363,14 +363,14 @@ export default class TournamentMessageManager {
 
       const threadMessages = await this.getThreadMessages();
       const thread = await this.getThreadFromMessage(mainMessage);
-      mainMessage.delete();
-      this.mainMessage = null;
       await Promise.allSettled(
         threadMessages.map((m) => m.edit({ components: [] }))
       );
       thread
         .setArchived(true)
         .catch((e) => console.error("could not delete thread"));
+      mainMessage.delete();
+      this.mainMessage = null;
       return [mainMessage, ...threadMessages];
     } catch (e) {
       return undefined;
