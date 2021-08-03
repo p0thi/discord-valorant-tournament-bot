@@ -159,7 +159,7 @@ export default class TournamentMessageManager {
     return result;
   }
 
-  private async getMainMessage(): Promise<Message> {
+  private async getMainMessage(): Promise<Message | undefined> {
     return new Promise<Message>((resolve, reject) => {
       if (
         TournamentMessageManager._mainMessageInstances.has(
@@ -265,6 +265,10 @@ export default class TournamentMessageManager {
           return;
         }
         const mainMessage = await this.getMainMessage();
+
+        if (!mainMessage) {
+          return;
+        }
         const thread = await this.getThreadFromMessage(mainMessage);
 
         if (thread.archived) {
@@ -353,9 +357,14 @@ export default class TournamentMessageManager {
     try {
       const mainMessage = await this.getMainMessage();
 
+      if (!mainMessage) {
+        return [];
+      }
+
       const threadMessages = await this.getThreadMessages();
       const thread = await this.getThreadFromMessage(mainMessage);
       mainMessage.delete();
+      this.mainMessage = null;
       await Promise.allSettled(
         threadMessages.map((m) => m.edit({ components: [] }))
       );
