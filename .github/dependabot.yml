@@ -10,6 +10,7 @@ updates:
     commit-message:
       prefix: "Dependency"
       include: "scope"
+    open-pull-requests-limit: 0
   - package-ecosystem: "docker"
     directory: "/"
     schedule:

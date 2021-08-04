@@ -1,6 +1,6 @@
 import mongoose, { Mongoose } from "mongoose";
 import IGuild from "./interfaces/IGuild";
-import IUser from "./interfaces/IUser";
+import IUser, { IValoAccountInfo } from "./interfaces/IUser";
 import GuildModel from "./models/DatabaseGuild";
 
 import UserModel from "./models/DatabaseUser";
@@ -48,4 +48,28 @@ export default class DatabaseManager {
     }
     return guild;
   }
+
+  getDbUserMaxElo(dbUser: IUser): [IValoAccountInfo, typeof regions[number]] {
+    let currentResult;
+    let currentResultRegion;
+
+    for (const region of regions) {
+      const currentValoAccount = dbUser[`${region}_account`];
+
+      if (currentValoAccount) {
+        if (currentResult) {
+          if (currentValoAccount.elo > currentResult.elo) {
+            currentResult = currentValoAccount;
+            currentResultRegion = region;
+          }
+        } else if (currentValoAccount.elo > 0) {
+          currentResult = currentValoAccount;
+          currentResultRegion = region;
+        }
+      }
+    }
+    return [currentResult, currentResultRegion];
+  }
 }
+
+export const regions = ["na", "eu", "kr", "ap"];

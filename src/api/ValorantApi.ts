@@ -121,7 +121,7 @@ export default class ValorantApi {
           // dbUser[`${user.data.region}_account`] = valoAccountInfo;
         } else {
           valoAccountInfo.elo = 0;
-          valoAccountInfo.currenttier = 10;
+          valoAccountInfo.currenttier = 0;
           valoAccountInfo.currenttierpatched = "Estimated: Silver 2";
           valoAccountInfo.name = user.name;
           valoAccountInfo.tag = user.tag;
@@ -139,7 +139,7 @@ export default class ValorantApi {
   async refreshUser(
     dbUser: IUser,
     region: string
-  ): Promise<[RefreshUserResponseTypes, any]> {
+  ): Promise<[RefreshUserResponseTypes, IApiAccountInfo]> {
     const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
 
     if (!valoAccountInfo || !valoAccountInfo.puuid) {

@@ -150,8 +150,10 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
 
     const participantHighestValorantAccounts =
       populatedTournament.participants.map(
-        (p) => tournamentManager.getDbUserMaxElo(p) as IValoAccountInfo
+        (p) => dbManager.getDbUserMaxElo(p)[0]
       );
+
+    populatedTournament.region;
 
     const allParticipantsAverageElo =
       participantHighestValorantAccounts
@@ -171,7 +173,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       const groupAverageElo = Math.ceil(
         groupParticipants
           .map((p) => {
-            const maxElo = tournamentManager.getDbUserMaxElo(p).elo as number;
+            const maxElo = dbManager.getDbUserMaxElo(p)[0].elo;
             return maxElo > 0 ? maxElo : 750;
           })
           .reduce((a, c) => a + c, 0) / availablePremades.length

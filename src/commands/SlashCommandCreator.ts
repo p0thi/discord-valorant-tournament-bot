@@ -162,7 +162,7 @@ export default abstract class SlashCommandCreator {
       options: [
         {
           name: "region",
-          description: "Your valoran accounts server region",
+          description: "Your valorant accounts server region",
           type: "STRING",
           required: true,
           choices: [

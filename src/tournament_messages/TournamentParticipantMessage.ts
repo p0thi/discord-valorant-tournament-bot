@@ -39,18 +39,36 @@ export default class TournamentParticipantMessage
                     const user = populatedTournament.participants.find(
                       (p) => p.discordId === index
                     );
-                    const valoAccountInfo = tournamentManager.getDbUserMaxElo(
-                      user
-                    ) as IValoAccountInfo;
-                    return ` <@${participant.id}>(<:${
-                      emojis
-                        .find((e) => e?.tier === valoAccountInfo.currenttier)
-                        .getValoEmoji(tournamentManager.guild.client).identifier
-                    }>${
-                      valoAccountInfo?.elo > 0
-                        ? valoAccountInfo.elo
-                        : "Estimated: 750"
-                    })`;
+                    const [maxEloValoAccountInfo, region] =
+                      dbManager.getDbUserMaxElo(user);
+                    const regionValoAccountInfo =
+                      user[`${populatedTournament.region}_account`];
+                    const participantMention = `<@${participant.id}>`;
+                    const valoAccountInfoMention =
+                      region === populatedTournament.region
+                        ? `<:${
+                            emojis
+                              .find(
+                                (e) =>
+                                  e?.tier === maxEloValoAccountInfo.currenttier
+                              )
+                              .getValoEmoji(tournamentManager.guild.client)
+                              .identifier
+                          }>${maxEloValoAccountInfo.elo}`
+                        : `${region.toUpperCase()}: <:${
+                            emojis
+                              .find(
+                                (e) =>
+                                  e?.tier === maxEloValoAccountInfo.currenttier
+                              )
+                              .getValoEmoji(tournamentManager.guild.client)
+                              .identifier
+                          }>${
+                            maxEloValoAccountInfo.elo
+                          } | ${populatedTournament.region.toUpperCase()}: ${
+                            regionValoAccountInfo.elo
+                          }`;
+                    return ` ${participantMention}(${valoAccountInfoMention})`;
                   })
                   .join(", ")
               : "\u200b",

@@ -1,6 +1,10 @@
 import { CommandInteraction, Guild } from "discord.js";
-import ValorantApi, { LinkUserResponseTypes } from "../../api/ValorantApi";
+import ValorantApi, {
+  LinkUserResponseTypes,
+  RefreshUserResponseTypes,
+} from "../../api/ValorantApi";
 import DatabaseManager from "../../db/DatabaseManager";
+import emojis from "../../util/emojis";
 import CustomApplicationCommand, {
   CommandPermissionRole,
 } from "../CustomApplicationCommand";
@@ -74,6 +78,31 @@ export default class ModerateCommand
                     },
                   ],
                 },
+                {
+                  name: "refresh",
+                  description: "Refresh a users valorant account",
+                  type: "SUB_COMMAND",
+                  options: [
+                    {
+                      name: "user",
+                      description: "The target user",
+                      type: "USER",
+                      required: true,
+                    },
+                    {
+                      name: "region",
+                      description: "The users valorant accounts server region",
+                      type: "STRING",
+                      required: true,
+                      choices: [
+                        { name: "Europe", value: "eu" },
+                        { name: "Asia Pacific", value: "ap" },
+                        { name: "North America", value: "na" },
+                        { name: "Korea", value: "kr" },
+                      ],
+                    },
+                  ],
+                },
               ],
             },
           ],
@@ -139,6 +168,55 @@ export default class ModerateCommand
 
                         interaction.followUp({
                           content: `The valorant account **${user.name}#${user.tag}** has been linked to the discord user <@${targetDiscordId}>`,
+                          ephemeral: true,
+                        });
+                      }
+                      break;
+                    case "refresh":
+                      {
+                        const { value: targetDiscordId } =
+                          interaction.options.get("user");
+                        const { value: region } =
+                          interaction.options.get("region");
+
+                        const dbUser = await dbManager.getUser({
+                          discordId: targetDiscordId,
+                        });
+                        const [resp, user] = await api.refreshUser(
+                          dbUser,
+                          region as string
+                        );
+
+                        if (!user) {
+                          if (resp === RefreshUserResponseTypes.NOT_LINKED) {
+                            interaction.followUp({
+                              content:
+                                "The user does not have a valorant account linked for that region",
+                              ephemeral: true,
+                            });
+                            break;
+                          } else {
+                            // NO ELO FOUND
+                            interaction.followUp({
+                              content:
+                                "The data for that user and that region could not be updated.",
+                              ephemeral: true,
+                            });
+                            break;
+                          }
+                        }
+                        interaction.followUp({
+                          content: `The valorant account for <@${targetDiscordId}> has been refreshed:\n**${
+                            user.name
+                          }#${user.tag}** (${
+                            user.currenttier !== 0
+                              ? `<:${
+                                  emojis
+                                    .find((e) => e?.tier === user.currenttier)
+                                    .getValoEmoji(interaction.client).identifier
+                                }> ${user.currenttierpatched}`
+                              : "No ranked data"
+                          })`,
                           ephemeral: true,
                         });
                       }

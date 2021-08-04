@@ -347,9 +347,7 @@ export default class TournamentMessageManager {
             this.tournament.messageIds = threadMessages.map((m) => m.id);
             await this.tournament.ownerDocument().save();
           }
-        } catch (e) {
-          console.error("Could not edit messages!");
-        }
+        } catch (e) {}
       });
   }
 
@@ -375,23 +373,6 @@ export default class TournamentMessageManager {
     } catch (e) {
       return undefined;
     }
-  }
-
-  getDbUserMaxElo(dbUser: IUser): IValoAccountInfo {
-    let currentResult;
-
-    for (const region of ["na", "eu", "kr", "ap"]) {
-      if (`${region}_account` in dbUser) {
-        const currentValoAccount = dbUser[`${region}_account`];
-        if (
-          !currentResult ||
-          (currentValoAccount && currentValoAccount.elo > currentResult.elo)
-        )
-          currentResult = currentValoAccount;
-      }
-    }
-
-    return currentResult;
   }
 }
 

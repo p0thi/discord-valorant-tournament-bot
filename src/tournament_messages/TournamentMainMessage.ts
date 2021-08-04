@@ -49,7 +49,7 @@ export default class TournamentMainMessage implements ITournamentMessage {
             Math.ceil(
               populatedTournament.participants
                 .map((p) => {
-                  const elo = tournametMessage.getDbUserMaxElo(p)?.elo || 0;
+                  const elo = dbManager.getDbUserMaxElo(p)[0]?.elo || 0;
                   return elo > 0 ? elo : 750;
                 })
                 .reduce((a, b) => a + b, 0) /

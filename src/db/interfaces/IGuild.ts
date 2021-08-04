@@ -1,7 +1,9 @@
 import { Document, Types } from "mongoose";
 import { CommandPermissionRole } from "../../commands/CustomApplicationCommand";
+import { regions } from "../DatabaseManager";
 import IUser from "./IUser";
 
+type region = typeof regions[number];
 export default interface IGuild extends Document {
   discordId: string;
   setupDone: boolean;
@@ -14,7 +16,7 @@ export default interface IGuild extends Document {
 export interface ITournamentSetting extends Types.Subdocument {
   name: string;
   description: string;
-  region: "eu" | "na" | "ap" | "kr";
+  region: region;
   channelId: string;
   messageIds: string[];
   mainMessageId: string;

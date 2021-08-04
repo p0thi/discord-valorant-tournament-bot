@@ -1,5 +1,6 @@
 import { model, Schema } from "mongoose";
 import { CommandPermissionRole } from "../../commands/CustomApplicationCommand";
+import { regions } from "../DatabaseManager";
 import IGuild from "../interfaces/IGuild";
 
 const tournamentTeamSchema: Schema = new Schema({
@@ -29,7 +30,7 @@ const tournamentSettingsSchema: Schema = new Schema(
     region: {
       type: String,
       required: true,
-      enum: ["na", "eu", "kr", "ap"],
+      enum: regions,
     },
     channelId: { type: String, required: true },
     messageIds: [{ type: String, required: false }],
