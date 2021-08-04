@@ -379,6 +379,17 @@ export default class TournamentCommand
                     return;
                   }
 
+                  const [highestUserValoAccount] =
+                    dbManager.getDbUserMaxElo(dbUserToAdd);
+
+                  if (!highestUserValoAccount) {
+                    interaction.followUp({
+                      content: `:exclamation: At least one of <@${player}>s linked valorant accounts needs to have a rank.`,
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
                   const tournamentManager = new TournamentManager(
                     this.guild,
                     tournament

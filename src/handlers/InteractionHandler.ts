@@ -126,6 +126,18 @@ export default class InteractionHandler {
                   return;
                 }
 
+                const [highestUserValoAccount] =
+                  dbManager.getDbUserMaxElo(dbUser);
+
+                if (!highestUserValoAccount) {
+                  interaction.followUp({
+                    content:
+                      ":exclamation: At least one of your linked valo accounts needs to have a rank.",
+                    ephemeral: true,
+                  });
+                  return;
+                }
+
                 tournament.participants.addToSet(dbUser);
                 await tournament.ownerDocument().save();
                 tournamentManager.tournamentMessage.editAllMessages();
