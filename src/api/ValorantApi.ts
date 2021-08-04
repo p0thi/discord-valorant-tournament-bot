@@ -72,6 +72,7 @@ export default class ValorantApi {
       axios
         .get(url)
         .then((response) => {
+          console.log(response.data);
           resolve(response.data.data as IApiAccountInfo);
         })
         .catch((err) => {
@@ -126,7 +127,6 @@ export default class ValorantApi {
           valoAccountInfo.name = user.name;
           valoAccountInfo.tag = user.tag;
         }
-
         await dbUser.save();
 
         return [LinkUserResponseTypes.OK, user];
@@ -189,6 +189,9 @@ export interface IApiUser {
 export interface IApiAccountInfo {
   currenttier: number;
   currenttierpatched: string;
+  ranking_in_tier: number;
+  mmr_change_to_last_game: number;
+  games_needed_for_rating: number;
   elo: number;
   name: string;
   tag: string;

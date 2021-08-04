@@ -24,7 +24,6 @@ import TournamentManager, {
   PremadeStatus,
   PremateStatusEmoji,
 } from "./TournamentManager";
-import emojis from "../util/emojis";
 import TournamentMainMessage from "../tournament_messages/TournamentMainMessage";
 import TournamentParticipantMessage from "../tournament_messages/TournamentParticipantMessage";
 import TournamentPremadeMessage from "../tournament_messages/TournamentPremadeMessage";

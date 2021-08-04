@@ -22,6 +22,7 @@ import TournamentCommand from "./guild_commands/TournamentCommand";
 import IGuildCommand from "./guild_commands/IGuildCommand";
 import PermissionCommand from "./guild_commands/PermissionCommand";
 import ModerateCommand from "./guild_commands/ModerateCommand";
+import emojis from "../util/emojis";
 
 const api = ValorantApi.getInstatnce();
 const dbManager = DatabaseManager.getInstance();
@@ -182,15 +183,27 @@ export default abstract class SlashCommandCreator {
 
         interaction.defer({ ephemeral: true });
 
-        const refreshResp = await api.refreshUser(dbUser, region as string);
+        const [respType, user] = await api.refreshUser(
+          dbUser,
+          region as string
+        );
 
         const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
 
-        switch (refreshResp[0]) {
+        switch (respType) {
           case RefreshUserResponseTypes.OK:
             {
               interaction.followUp({
-                content: `Refreshed the Valorant account info for **${valoAccountInfo.name}#${valoAccountInfo.tag}**.`,
+                content:
+                  `Refreshed the Valorant account info for **${valoAccountInfo.name}#${valoAccountInfo.tag}**:\n\n` +
+                  `Rank: <:${
+                    emojis
+                      .find((e) => e?.tier === user.currenttier)
+                      .getValoEmoji(interaction.client).identifier
+                  }>**${user.currenttierpatched}**\nElo: \`${
+                    user.elo
+                  }\`\nRanking in tier: \`${user.ranking_in_tier}\`\n` +
+                  `MMR change to last game: \`${user.mmr_change_to_last_game}\``,
                 ephemeral: true,
               });
             }
