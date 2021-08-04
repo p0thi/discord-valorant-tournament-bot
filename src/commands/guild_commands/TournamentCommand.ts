@@ -231,6 +231,15 @@ export default class TournamentCommand
                     return;
                   }
 
+                  if ((name as string).length > 50) {
+                    interaction.followUp({
+                      content:
+                        "The name is too long (max 50 letters). Use the description instead (the description can be edited after the tournament was created)",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
                   if (
                     !channel
                       .permissionsFor(botMember)
