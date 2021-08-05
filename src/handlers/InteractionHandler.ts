@@ -82,202 +82,210 @@ export default class InteractionHandler {
           ]);
 
           const tournament = dbGuild.tournamentSettings.id(tournamentId);
-          const tournamentManager = new TournamentManager(
-            interaction.guild,
-            tournament
-          );
+          if (tournament) {
+            const tournamentManager = new TournamentManager(
+              interaction.guild,
+              tournament
+            );
 
-          switch (command) {
-            case "join_tournament":
-              {
-                if (tournament.participants.indexOf(dbUser.id) !== -1) {
-                  interaction.followUp(
-                    ":exclamation: You're already in this tournament!"
-                  );
-                  return;
-                }
+            switch (command) {
+              case "join_tournament":
+                {
+                  if (tournament.participants.indexOf(dbUser.id) !== -1) {
+                    interaction.followUp(
+                      ":exclamation: You're already in this tournament!"
+                    );
+                    return;
+                  }
 
-                if (tournament.participants.length >= 100) {
-                  interaction.followUp(
-                    ":exclamation: This tournament is full!"
-                  );
-                  return;
-                }
+                  if (tournament.participants.length >= 100) {
+                    interaction.followUp(
+                      ":exclamation: This tournament is full!"
+                    );
+                    return;
+                  }
 
-                const userValoAccountInfo =
-                  dbUser[`${tournament.region}_account`];
+                  const userValoAccountInfo =
+                    dbUser[`${tournament.region}_account`];
 
-                if (!userValoAccountInfo) {
-                  const noValoAccountWarning = `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!`;
+                  if (!userValoAccountInfo) {
+                    const noValoAccountWarning = `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!`;
+                    interaction.followUp({
+                      content: `${noValoAccountWarning}\nUse the */link* command to do so, or write me a DM.`,
+                      ephemeral: true,
+                    });
+                    const dmChannel = await interaction.user.createDM();
+                    dmChannel.send({
+                      content: `${noValoAccountWarning}`,
+                    });
+                    const conversation =
+                      await Conversation.createLinkConversation(
+                        dmChannel as DMChannel,
+                        interaction.user
+                      );
+                    conversation.start();
+                    return;
+                  }
+
+                  const [highestUserValoAccount] =
+                    dbManager.getDbUserMaxElo(dbUser);
+
+                  if (!highestUserValoAccount) {
+                    interaction.followUp({
+                      content:
+                        ":exclamation: At least one of your linked valo accounts needs to have a rank.",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  tournament.participants.addToSet(dbUser);
+                  await tournament.ownerDocument().save();
+                  tournamentManager.tournamentMessage.editAllMessages();
+
+                  tournamentManager.tournamentMessage
+                    .getThread()
+                    .then((thread) => {
+                      if (!thread) {
+                        return;
+                      }
+                      thread.members.add(interaction.user);
+                    });
+
                   interaction.followUp({
-                    content: `${noValoAccountWarning}\nUse the */link* command to do so, or write me a DM.`,
+                    content: "You have joined the tournament!",
                     ephemeral: true,
                   });
-                  const dmChannel = await interaction.user.createDM();
-                  dmChannel.send({
-                    content: `${noValoAccountWarning}`,
-                  });
-                  const conversation =
-                    await Conversation.createLinkConversation(
-                      dmChannel as DMChannel,
-                      interaction.user
-                    );
-                  conversation.start();
-                  return;
                 }
+                break;
+              case "leave_tournament":
+                {
+                  await InteractionHandler.leaveGroups(dbUser, tournament);
+                  tournament.participants.remove(dbUser);
+                  await tournament.ownerDocument().save();
+                  tournamentManager.tournamentMessage.editAllMessages();
 
-                const [highestUserValoAccount] =
-                  dbManager.getDbUserMaxElo(dbUser);
+                  tournamentManager.tournamentMessage
+                    .getThread()
+                    .then((thread) => {
+                      if (!thread) {
+                        return;
+                      }
+                      thread.members.remove(interaction.user.id);
+                    });
 
-                if (!highestUserValoAccount) {
+                  interaction.followUp({
+                    content: "You have left the tournament!",
+                    ephemeral: true,
+                  });
+                }
+                break;
+              case "group_select":
+                {
+                  const selectMenuInteraction =
+                    interaction as SelectMenuInteraction;
+
+                  if (
+                    !tournament.participants.find(
+                      (p) => p.toString() === dbUser.id.toString()
+                    )
+                  ) {
+                    interaction.followUp({
+                      content: "You're not in this tournament!",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  const otherParticipants = selectMenuInteraction.values.filter(
+                    (discordId) => discordId !== dbUser.discordId
+                  );
+
+                  const populatedTournament =
+                    await tournamentManager.populateTournament();
+
+                  // remove existing groups with the current submitted selection
+                  populatedTournament.premades =
+                    populatedTournament.premades.filter(
+                      (p) =>
+                        p.issuer.toString() !== dbUser.id.toString() &&
+                        !selectMenuInteraction.values.includes(
+                          p.target.discordId.toString()
+                        )
+                    ) as Types.DocumentArray<IPremade>;
+
+                  if (
+                    populatedTournament.premades.filter(
+                      (p) => p.issuer.id.toString() === dbUser.id.toString()
+                    ).length +
+                      selectMenuInteraction.values.length >
+                    5
+                  ) {
+                    interaction.followUp({
+                      content: "You cannot select more than 5 people!",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  const dbUsers = await Promise.all(
+                    otherParticipants.map((discordId) =>
+                      populatedTournament.participants.find(
+                        (p) => p.discordId === discordId
+                      )
+                    )
+                  );
+
+                  interaction.followUp({
+                    content: `You selected ${dbUsers
+                      .map((u) => `<@${u.discordId}>`)
+                      .join(", ")} to be your premade(s) if possible.`,
+                    ephemeral: true,
+                  });
+
+                  const premadeObjects = dbUsers.map(
+                    (u) =>
+                      ({
+                        issuer: dbUser,
+                        target: u,
+                      } as IPremade)
+                  );
+                  populatedTournament.premades.addToSet(...premadeObjects);
+                  await populatedTournament.ownerDocument().save();
+                  tournamentManager.tournamentMessage.editAllMessages();
+                }
+                break;
+              case "leave_groups":
+                {
+                  if (
+                    !tournament.participants.find((p) => {
+                      console.log(p, dbUser.id);
+                      return p.toString() === dbUser.id.toString();
+                    })
+                  ) {
+                    interaction.followUp({
+                      content: "You're not in this tournament!",
+                      ephemeral: true,
+                    });
+                    return;
+                  }
+
+                  await InteractionHandler.leaveGroups(dbUser, tournament);
+
                   interaction.followUp({
                     content:
-                      ":exclamation: At least one of your linked valo accounts needs to have a rank.",
+                      "You are no longer a member of any premade groups.",
                     ephemeral: true,
                   });
-                  return;
+                  tournamentManager.tournamentMessage.editAllMessages();
                 }
-
-                tournament.participants.addToSet(dbUser);
-                await tournament.ownerDocument().save();
-                tournamentManager.tournamentMessage.editAllMessages();
-
-                tournamentManager.tournamentMessage
-                  .getThread()
-                  .then((thread) => {
-                    if (!thread) {
-                      return;
-                    }
-                    thread.members.add(interaction.user);
-                  });
-
-                interaction.followUp({
-                  content: "You have joined the tournament!",
-                  ephemeral: true,
-                });
-              }
-              break;
-            case "leave_tournament":
-              {
-                await InteractionHandler.leaveGroups(dbUser, tournament);
-                tournament.participants.remove(dbUser);
-                await tournament.ownerDocument().save();
-                tournamentManager.tournamentMessage.editAllMessages();
-
-                tournamentManager.tournamentMessage
-                  .getThread()
-                  .then((thread) => {
-                    if (!thread) {
-                      return;
-                    }
-                    thread.members.remove(interaction.user.id);
-                  });
-
-                interaction.followUp({
-                  content: "You have left the tournament!",
-                  ephemeral: true,
-                });
-              }
-              break;
-            case "group_select":
-              {
-                const selectMenuInteraction =
-                  interaction as SelectMenuInteraction;
-
-                if (
-                  !tournament.participants.find(
-                    (p) => p.toString() === dbUser.id.toString()
-                  )
-                ) {
-                  interaction.followUp({
-                    content: "You're not in this tournament!",
-                    ephemeral: true,
-                  });
-                  return;
-                }
-
-                const otherParticipants = selectMenuInteraction.values.filter(
-                  (discordId) => discordId !== dbUser.discordId
-                );
-
-                const populatedTournament =
-                  await tournamentManager.populateTournament();
-
-                // remove existing groups with the current submitted selection
-                populatedTournament.premades =
-                  populatedTournament.premades.filter(
-                    (p) =>
-                      p.issuer.toString() !== dbUser.id.toString() &&
-                      !selectMenuInteraction.values.includes(
-                        p.target.discordId.toString()
-                      )
-                  ) as Types.DocumentArray<IPremade>;
-
-                if (
-                  populatedTournament.premades.filter(
-                    (p) => p.issuer.id.toString() === dbUser.id.toString()
-                  ).length +
-                    selectMenuInteraction.values.length >
-                  5
-                ) {
-                  interaction.followUp({
-                    content: "You cannot select more than 5 people!",
-                    ephemeral: true,
-                  });
-                  return;
-                }
-
-                const dbUsers = await Promise.all(
-                  otherParticipants.map((discordId) =>
-                    populatedTournament.participants.find(
-                      (p) => p.discordId === discordId
-                    )
-                  )
-                );
-
-                interaction.followUp({
-                  content: `You selected ${dbUsers
-                    .map((u) => `<@${u.discordId}>`)
-                    .join(", ")} to be your premade(s) if possible.`,
-                  ephemeral: true,
-                });
-
-                const premadeObjects = dbUsers.map(
-                  (u) =>
-                    ({
-                      issuer: dbUser,
-                      target: u,
-                    } as IPremade)
-                );
-                populatedTournament.premades.addToSet(...premadeObjects);
-                await populatedTournament.ownerDocument().save();
-                tournamentManager.tournamentMessage.editAllMessages();
-              }
-              break;
-            case "leave_groups":
-              {
-                if (
-                  !tournament.participants.find((p) => {
-                    console.log(p, dbUser.id);
-                    return p.toString() === dbUser.id.toString();
-                  })
-                ) {
-                  interaction.followUp({
-                    content: "You're not in this tournament!",
-                    ephemeral: true,
-                  });
-                  return;
-                }
-
-                await InteractionHandler.leaveGroups(dbUser, tournament);
-
-                interaction.followUp({
-                  content: "You are no longer a member of any premade groups.",
-                  ephemeral: true,
-                });
-                tournamentManager.tournamentMessage.editAllMessages();
-              }
-              break;
+                break;
+            }
+          } else {
+            interaction.followUp({
+              content: "This tournament is not active.",
+              ephemeral: true,
+            });
           }
         }
       }

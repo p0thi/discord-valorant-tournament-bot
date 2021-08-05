@@ -53,6 +53,11 @@ export default class Conversation {
             value:
               "Refreshes your valorant account information (e.g. rank, elo, ...) for a selectable server region.",
           },
+          {
+            name: "\u200b",
+            value:
+              "**:exclamation: You can ignore this message, if you don't want to do anything. :exclamation:**",
+          },
         ],
       },
     ],
@@ -83,6 +88,7 @@ export default class Conversation {
   ttl: number;
   onSuccess: (Conversation: Conversation) => Promise<boolean>;
   onError: (Conversation: Conversation) => Promise<void>;
+  sentMessages: Message[] = [];
 
   private buttonCollector: InteractionCollector<MessageComponentInteraction>;
   private lastInteraction: Date;
@@ -225,6 +231,11 @@ export default class Conversation {
     }
 
     this.delete();
+    this.sentMessages.forEach((msg) => {
+      msg.edit({ components: [] }).catch(() => {
+        console.log("could not remove components from dm message");
+      });
+    });
     this.channel
       .send(
         "The current interaction **has been aborted**. Please start a new one. :octagonal_sign:"
@@ -322,12 +333,14 @@ export default class Conversation {
               ]);
 
               console.log("sending reply");
-              await conv.channel.send({
-                content: `You already have a Valorant account in **${user.region.toUpperCase()}** linked (${
-                  valoAccountInfo.name
-                }#${valoAccountInfo.tag}). Do you want to replace it?`,
-                components: [row],
-              });
+              conv.sentMessages.push(
+                await conv.channel.send({
+                  content: `You already have a Valorant account in **${user.region.toUpperCase()}** linked (${
+                    valoAccountInfo.name
+                  }#${valoAccountInfo.tag}). Do you want to replace it?`,
+                  components: [row],
+                })
+              );
 
               conv.channel
                 .createMessageComponentCollector({
@@ -502,6 +515,9 @@ export class ConversationAction {
 
   async sendMessage(): Promise<void> {
     const content: MessageOptions = this.message();
+    if (this.conv.deleted) {
+      return;
+    }
 
     if (!content.components) {
       content.components = [];
@@ -539,6 +555,7 @@ export class ConversationAction {
     }
 
     const question = await this.conv.channel.send(content);
+    this.conv.sentMessages.push(question);
 
     const actionResponse = new ActionResponse(
       this.interactionType,
@@ -547,6 +564,10 @@ export class ConversationAction {
       this.verifyResponse
     );
     const returnVal = await actionResponse.getResponse();
+
+    if (this.conv.deleted) {
+      return;
+    }
 
     if (!returnVal) {
       this.conv.channel.send("I could not handle this input. Please try again");
