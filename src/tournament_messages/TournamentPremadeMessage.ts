@@ -102,7 +102,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
         new MessageActionRow().addComponents([
           new MessageSelectMenu()
             .setCustomId(`group_select#${tournamentManager.uniqueTournamentId}`)
-            .setPlaceholder("Not enough participants to slect premades...")
+            .setPlaceholder("Not enough participants to select premades...")
             .setDisabled(true)
             .addOptions([{ label: "Player", value: "0" }]),
         ]),
