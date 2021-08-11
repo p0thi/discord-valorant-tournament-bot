@@ -89,7 +89,7 @@ export default class TournamentMainMessage implements ITournamentMessage {
 
     const result = {
       embeds: [embed1],
-      components: [row1, row2],
+      components: [row1, ...(row2.components.length > 0 ? [row2] : [])],
     } as MessageOptions;
 
     return [result];
