@@ -38,13 +38,15 @@ export default class TournamentMainMessage implements ITournamentMessage {
     const row2 = new MessageActionRow();
 
     if (messages && messages.length > 0) {
-      row2.addComponents([
-        new MessageButton()
-          .setLabel("⏬ Participants List")
-          .setStyle("LINK")
-          .setURL(messages[0].url),
-      ]);
-      if (messages.length > 1) {
+      if (messages[0] && "url" in messages[0]) {
+        row2.addComponents([
+          new MessageButton()
+            .setLabel("⏬ Participants List")
+            .setStyle("LINK")
+            .setURL(messages[0].url),
+        ]);
+      }
+      if (messages.length > 1 && messages[1] && "url" in messages[1]) {
         row2.addComponents([
           new MessageButton()
             .setLabel("⏬ Premades Message")
