@@ -16,6 +16,7 @@ import emojis from "../util/emojis";
 import ITournamentMessage from "./ITournamentMessage";
 
 const dbManager = DatabaseManager.getInstance();
+const minParticipants = 1;
 
 export default class TournamentPremadeMessage implements ITournamentMessage {
   async create(
@@ -24,7 +25,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
   ): Promise<MessageOptions[]> {
     let selectMenuRows;
 
-    if (populatedTournament.participants.length >= 5) {
+    if (populatedTournament.participants.length >= minParticipants) {
       const discordMembers = await tournamentManager.guild.members.fetch({
         user: populatedTournament.participants.map((p) => p.discordId),
       });
@@ -121,30 +122,38 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       description: "Groups of players, who want to play in one team.",
       color: "#008ea1",
       fields: [
-        {
-          name: `${PremateStatusEmoji.get(PremadeStatus.READY)} Accepted`,
-          inline: false,
-          value:
-            "Player accepted to be in this group by selection one or more of the other players as premades.",
-        },
-        {
-          name: `${PremateStatusEmoji.get(PremadeStatus.PENDIG)} Pending`,
-          inline: false,
-          value:
-            "Player needs to accept to play in that group, by chosing at least one player of that group as a premade.",
-        },
-        {
-          name: `${PremateStatusEmoji.get(
-            PremadeStatus.INCOMPLETE
-          )} Incomplete`,
-          inline: false,
-          value: "Not all of the players selected premades are in this group.",
-        },
-        {
-          name: `${PremateStatusEmoji.get(PremadeStatus.CONFLICT)} Conflict`,
-          inline: false,
-          value: "None of the players selected premades are in this group.",
-        },
+        ...(populatedTournament.participants.length >= minParticipants
+          ? [
+              {
+                name: `${PremateStatusEmoji.get(PremadeStatus.READY)} Accepted`,
+                inline: false,
+                value:
+                  "Player accepted to be in this group by selection one or more of the other players as premades.",
+              },
+              {
+                name: `${PremateStatusEmoji.get(PremadeStatus.PENDIG)} Pending`,
+                inline: false,
+                value:
+                  "Player needs to accept to play in that group, by chosing at least one player of that group as a premade.",
+              },
+              {
+                name: `${PremateStatusEmoji.get(
+                  PremadeStatus.INCOMPLETE
+                )} Incomplete`,
+                inline: false,
+                value:
+                  "Not all of the players selected premades are in this group.",
+              },
+              {
+                name: `${PremateStatusEmoji.get(
+                  PremadeStatus.CONFLICT
+                )} Conflict`,
+                inline: false,
+                value:
+                  "None of the players selected premades are in this group.",
+              },
+            ]
+          : []),
       ],
     };
 

@@ -18,6 +18,7 @@ export interface ITournamentSetting extends Types.Subdocument {
   description: string;
   region: region;
   channelId: string;
+  threadMessageIds: string[];
   messageIds: string[];
   mainMessageId: string;
   teams: Types.DocumentArray<ITournamentTeam>;

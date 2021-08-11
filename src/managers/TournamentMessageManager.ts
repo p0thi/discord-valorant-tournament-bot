@@ -32,7 +32,9 @@ const dbManager = DatabaseManager.getInstance();
 
 export default class TournamentMessageManager {
   private static _threadMessageInstances = new Map<string, Message[]>();
+  private static _messageInstances = new Map<string, Message[]>();
   private static _mainMessageInstances = new Map<string, Message>();
+
   private static _editMessagesQueues = new Map<string, Queue>();
 
   guild: Guild;
@@ -40,6 +42,7 @@ export default class TournamentMessageManager {
   parentManager: TournamentManager;
 
   private _threadMessages: Message[];
+  private _messages: Message[];
   private _mainMessage: Message;
 
   get uniqueTournamentId(): string {
@@ -47,6 +50,7 @@ export default class TournamentMessageManager {
   }
 
   private waitingForThreadMessages: Array<(result: Message[]) => void> = [];
+  private waitingForMessages: Array<(result: Message[]) => void> = [];
   private waitingForMainMessage: Array<(result: Message) => void> = [];
 
   constructor(
@@ -176,16 +180,14 @@ export default class TournamentMessageManager {
     });
   }
 
-  private async getThreadMessages(): Promise<Message[]> {
+  private async getMessages(): Promise<Message[]> {
     return new Promise<Message[]>(async (resolve, reject) => {
-      const result = [];
+      const result: Message[] = [];
       if (
-        TournamentMessageManager._threadMessageInstances.has(
-          this.uniqueTournamentId
-        )
+        TournamentMessageManager._messageInstances.has(this.uniqueTournamentId)
       ) {
         result.push(
-          ...TournamentMessageManager._threadMessageInstances.get(
+          ...TournamentMessageManager._messageInstances.get(
             this.uniqueTournamentId
           )
         );
@@ -193,16 +195,16 @@ export default class TournamentMessageManager {
       if (this.tournament.messageIds && this.tournament.messageIds.length > 0) {
         const mainMessage = await this.getMainMessage();
         if (!mainMessage) {
-          this.waitingForThreadMessages.push(resolve);
+          this.waitingForMessages.push(resolve);
           return;
         }
-        const thread = await this.getThreadFromMessage(mainMessage);
+        const mainChannel = mainMessage.channel as TextChannel;
         for (const id of this.tournament.messageIds) {
           try {
-            const message = await thread.messages.fetch(id);
+            const message = await mainChannel.messages.fetch(id);
             if (!result.find((m) => m.id === message.id)) {
               result.push(message);
-              TournamentMessageManager._threadMessageInstances
+              TournamentMessageManager._messageInstances
                 .get(this.uniqueTournamentId)
                 .push(message);
             }
@@ -221,6 +223,59 @@ export default class TournamentMessageManager {
       }
 
       resolve(result);
+      this.messages = result;
+      return;
+    });
+  }
+
+  private async getThreadMessages(): Promise<Message[]> {
+    return new Promise<Message[]>(async (resolve, reject) => {
+      const result = [];
+      if (
+        TournamentMessageManager._threadMessageInstances.has(
+          this.uniqueTournamentId
+        )
+      ) {
+        result.push(
+          ...TournamentMessageManager._threadMessageInstances.get(
+            this.uniqueTournamentId
+          )
+        );
+      }
+      if (
+        this.tournament.threadMessageIds &&
+        this.tournament.threadMessageIds.length > 0
+      ) {
+        const mainMessage = await this.getMainMessage();
+        if (!mainMessage) {
+          this.waitingForThreadMessages.push(resolve);
+          return;
+        }
+        const thread = await this.getThreadFromMessage(mainMessage);
+        for (const id of this.tournament.threadMessageIds) {
+          try {
+            const message = await thread.messages.fetch(id);
+            if (!result.find((m) => m.id === message.id)) {
+              result.push(message);
+              TournamentMessageManager._threadMessageInstances
+                .get(this.uniqueTournamentId)
+                .push(message);
+            }
+          } catch (e) {}
+        }
+      }
+      if (
+        !this.tournament.threadMessageIds ||
+        this.tournament.threadMessageIds.length !== result.length ||
+        !this.tournament.threadMessageIds.every((id) =>
+          result.find((m) => m.id === id)
+        )
+      ) {
+        this.tournament.threadMessageIds = result.map((m) => m.id);
+        await this.tournament.ownerDocument().save();
+      }
+
+      resolve(result);
       this.threadMessages = result;
       return;
     });
@@ -233,6 +288,15 @@ export default class TournamentMessageManager {
       value
     );
     this.waitingForThreadMessages.forEach((observer) => observer(value));
+  }
+
+  private set messages(value: Message[]) {
+    this._messages = value;
+    TournamentMessageManager._messageInstances.set(
+      this.uniqueTournamentId,
+      value
+    );
+    this.waitingForMessages.forEach((observer) => observer(value));
   }
 
   private set mainMessage(value: Message) {
@@ -260,7 +324,9 @@ export default class TournamentMessageManager {
     TournamentMessageManager._editMessagesQueues
       .get(this.uniqueTournamentId)
       .add(async () => {
-        if (!(await this.parentManager.populateTournament())) {
+        const populatedTournament =
+          await this.parentManager.populateTournament();
+        if (!populatedTournament) {
           return;
         }
         const mainMessage = await this.getMainMessage();
@@ -274,9 +340,6 @@ export default class TournamentMessageManager {
           return;
         }
 
-        const populatedTournament =
-          await this.parentManager.populateTournament();
-
         try {
           const mainMessageContent = await new TournamentMainMessage().create(
             this,
@@ -286,8 +349,9 @@ export default class TournamentMessageManager {
           mainMessage.suppressEmbeds(false);
 
           const threadMessages = await this.getThreadMessages();
+          const messages = await this.getMessages();
 
-          const messageOptions = [
+          const messageOptions: MessageOptions[] = [
             ...(await new TournamentParticipantMessage().create(
               this,
               populatedTournament
@@ -297,21 +361,63 @@ export default class TournamentMessageManager {
               populatedTournament
             )),
           ];
+          const mainChannel = mainMessage.channel as TextChannel;
+          let newMessages: Message[] = await Promise.all(
+            messageOptions.map(
+              (option, i) =>
+                new Promise<Message>(async (resolve, reject) => {
+                  if (messages.length > i) {
+                    const editedMessage = await messages[i]
+                      .edit(option)
+                      .catch((e) => {
+                        console.error(e, "could not edit message");
+                      });
+                    if (editedMessage) {
+                      resolve(editedMessage);
+                    } else {
+                      resolve(await mainChannel.send(option));
+                    }
+                  } else {
+                    resolve(await mainChannel.send(option));
+                  }
+                })
+            )
+          );
+          messages.push(
+            ...newMessages.filter((m) => !messages.find((x) => x.id === m.id))
+          );
 
-          let newThreadMessages: Message[] = [];
-          for (let i = 0; i < messageOptions.length; i++) {
-            if (threadMessages.length > i) {
-              newThreadMessages.push(
-                await threadMessages[i].edit(messageOptions[i])
-              );
-            } else {
-              const createdMessage = await thread.send(messageOptions[i]);
-              this.threadMessages = [...this._threadMessages, createdMessage];
+          const threadMessageOptions = [];
+          let newThreadMessages: Message[] = await Promise.all(
+            threadMessageOptions.map(
+              (option, i) =>
+                new Promise<Message>(async (resolve, reject) => {
+                  if (threadMessages.length > i) {
+                    const editedMessage = await threadMessages[i]
+                      .edit(option)
+                      .catch((e) => {
+                        console.error(e, "could not edit message");
+                      });
+                    if (editedMessage) {
+                      resolve(editedMessage);
+                    } else {
+                      resolve(await thread.send(option));
+                    }
+                  } else {
+                    resolve(await thread.send(option));
+                  }
+                })
+            )
+          );
 
-              newThreadMessages.push(createdMessage);
-              threadMessages.push(createdMessage);
-            }
-          }
+          threadMessages.push(
+            ...newThreadMessages.filter(
+              (m) => !threadMessages.find((x) => x.id === m.id)
+            )
+          );
+
+          this.threadMessages = threadMessages;
+          this.messages = messages;
 
           if (
             (
@@ -324,7 +430,7 @@ export default class TournamentMessageManager {
           ) {
             mainMessage.pin();
           }
-          newThreadMessages.forEach((m) => {
+          newThreadMessages.concat(newMessages).forEach((m) => {
             m.suppressEmbeds(false);
             if (
               thread
@@ -335,15 +441,29 @@ export default class TournamentMessageManager {
             }
           });
 
-          this.threadMessages = threadMessages;
+          let shouldSaveDocument = false;
           if (
-            !this.tournament.messageIds ||
-            this.tournament.messageIds.length !== threadMessages.length ||
-            !this.tournament.messageIds.every((id) =>
+            !this.tournament.threadMessageIds ||
+            this.tournament.threadMessageIds.length !== threadMessages.length ||
+            !this.tournament.threadMessageIds.every((id) =>
               threadMessages.find((m) => m.id === id)
             )
           ) {
-            this.tournament.messageIds = threadMessages.map((m) => m.id);
+            this.tournament.threadMessageIds = threadMessages.map((m) => m.id);
+            shouldSaveDocument = true;
+          }
+
+          if (
+            !this.tournament.messageIds ||
+            this.tournament.messageIds.length !== messages.length ||
+            !this.tournament.messageIds.every((id) =>
+              messages.find((m) => m.id === id)
+            )
+          ) {
+            this.tournament.messageIds = messages.map((m) => m.id);
+            shouldSaveDocument = true;
+          }
+          if (shouldSaveDocument) {
             await this.tournament.ownerDocument().save();
           }
         } catch (e) {}
@@ -379,30 +499,33 @@ class Queue {
   running: () => void;
   autorun: boolean;
   queue: (() => void)[];
+  max: number;
 
-  constructor(autorun = true, queue: (() => Promise<any>)[] = []) {
+  constructor(autorun = true, queue: (() => Promise<any>)[] = [], max = 1) {
     this.running = undefined;
     this.autorun = autorun;
     this.queue = queue;
+    this.max = max;
   }
 
   add(cb: () => Promise<any>) {
-    this.queue.push(() => {
-      const finished = new Promise(async (resolve, reject) => {
-        const callbackResponse = await cb();
+    if (this.queue.length <= this.max) {
+      this.queue.push(() => {
+        const finished = new Promise(async (resolve, reject) => {
+          const callbackResponse = await cb();
 
-        if (callbackResponse !== false) {
-          resolve(callbackResponse);
-        } else {
-          reject(callbackResponse);
-        }
+          if (callbackResponse !== false) {
+            resolve(callbackResponse);
+          } else {
+            reject(callbackResponse);
+          }
+        });
+
+        finished.then(this.dequeue.bind(this), () => {});
       });
-
-      finished.then(this.dequeue.bind(this), () => {});
-    });
-
-    if (this.autorun && !this.running) {
-      this.dequeue();
+      if (this.autorun && !this.running) {
+        this.dequeue();
+      }
     }
 
     return this;

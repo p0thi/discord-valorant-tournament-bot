@@ -33,6 +33,7 @@ const tournamentSettingsSchema: Schema = new Schema(
       enum: regions,
     },
     channelId: { type: String, required: true },
+    threadMessageIds: [{ type: String, required: false }],
     messageIds: [{ type: String, required: false }],
     mainMessageId: { type: String, required: false },
     teams: [tournamentTeamSchema],
