@@ -27,6 +27,10 @@ export default class TournamentMainMessage implements ITournamentMessage {
         .setCustomId(`leave_tournament#${tournametMessage.uniqueTournamentId}`)
         .setLabel("Leave Tournament")
         .setStyle("DANGER"),
+      new MessageButton()
+        .setCustomId(`tournament_help#${tournametMessage.uniqueTournamentId}`)
+        .setEmoji("❔")
+        .setStyle("SECONDARY"),
     ]);
 
     const embed1 = {

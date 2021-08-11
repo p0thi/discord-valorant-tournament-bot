@@ -89,6 +89,16 @@ export default class InteractionHandler {
             );
 
             switch (command) {
+              case "tournament_help":
+                {
+                  interaction.followUp({
+                    content:
+                      `If you want to join this tournament, you have to have a valorant acount of the ${tournament.region.toUpperCase()} region linked tou your discord account.\n` +
+                      `To link a new account, you can either type \`/link\` in the chat followed by your valorant username (like \`YourName#1234\`), or you can write a DM to the bot. It will then lead you through the process of linking your account.`,
+                    ephemeral: true,
+                  });
+                }
+                break;
               case "join_tournament":
                 {
                   if (tournament.participants.indexOf(dbUser.id) !== -1) {

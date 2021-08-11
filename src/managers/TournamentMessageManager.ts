@@ -149,7 +149,7 @@ export default class TournamentMessageManager {
             ? 4320
             : 1440,
         });
-        result.setRateLimitPerUser(180);
+        // result.setRateLimitPerUser(180);
       } catch (e) {
         try {
           return (await message.fetch(true)).thread;
@@ -201,8 +201,10 @@ export default class TournamentMessageManager {
         const mainChannel = mainMessage.channel as TextChannel;
         for (const id of this.tournament.messageIds) {
           try {
-            const message = await mainChannel.messages.fetch(id);
-            if (!result.find((m) => m.id === message.id)) {
+            const message = await mainChannel.messages
+              .fetch(id)
+              .catch((e) => console.log("Could not fetch message"));
+            if (message && !result.find((m) => m.id === message.id)) {
               result.push(message);
               TournamentMessageManager._messageInstances
                 .get(this.uniqueTournamentId)
