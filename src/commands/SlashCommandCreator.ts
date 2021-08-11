@@ -52,7 +52,7 @@ export default abstract class SlashCommandCreator {
           interaction.options.get("valorant-name");
         const splitName = String(valoUserName).split("#");
 
-        await interaction.defer({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         api.getUser(splitName[0], splitName[1]).then((user) => {
           api
@@ -181,7 +181,7 @@ export default abstract class SlashCommandCreator {
           discordId: interaction.user.id,
         });
 
-        interaction.defer({ ephemeral: true });
+        interaction.deferReply({ ephemeral: true });
 
         const [respType, user] = await api.refreshUser(
           dbUser,

@@ -72,7 +72,7 @@ export default class InteractionHandler {
             interaction.deferUpdate();
             return;
           }
-          interaction.defer({ ephemeral: true });
+          interaction.deferReply({ ephemeral: true });
 
           const [dbGuild, dbUser] = await Promise.all([
             dbManager.getGuild({ discordId: guildId }),

@@ -200,7 +200,7 @@ export default class TournamentCommand
           handler: async (interaction: CommandInteraction) => {
             const subCommand = interaction.options.getSubcommand();
 
-            interaction.defer({ ephemeral: true });
+            interaction.deferReply({ ephemeral: true });
 
             const dbGuild = await dbManager.getGuild({
               discordId: this.guild.id,

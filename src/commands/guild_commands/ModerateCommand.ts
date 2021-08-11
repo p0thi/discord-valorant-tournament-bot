@@ -110,7 +110,7 @@ export default class ModerateCommand
             const subCommandGroup = interaction.options.getSubcommandGroup();
             const subCommand = interaction.options.getSubcommand();
 
-            interaction.defer({ ephemeral: true });
+            interaction.deferReply({ ephemeral: true });
             switch (subCommandGroup) {
               case "user":
                 {

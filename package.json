@@ -15,7 +15,7 @@
   "dependencies": {
     "axios": "^0.21.1",
     "bufferutil": "^4.0.3",
-    "discord.js": "^13.0.0-dev.t1627992462.35fa3b3",
+    "discord.js": "^13.0.1",
     "dotenv": "^10.0.0",
     "erlpack": "discord/erlpack",
     "mongoose": "^5.13.2",
