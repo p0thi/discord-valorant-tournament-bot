@@ -18,7 +18,7 @@
     "discord.js": "^13.0.0-dev.t1627992462.35fa3b3",
     "dotenv": "^10.0.0",
     "erlpack": "discord/erlpack",
-    "mongoose": "^5.13.2",
+    "mongoose": "^5.13.6",
     "utf-8-validate": "^5.0.5",
     "uuid": "^8.3.2",
     "winston": "^3.3.3",
