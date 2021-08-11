@@ -49,7 +49,7 @@ export default class TournamentMainMessage implements ITournamentMessage {
       if (messages.length > 1 && messages[1] && "url" in messages[1]) {
         row2.addComponents([
           new MessageButton()
-            .setLabel("⏬ Premades Message")
+            .setLabel("⏬ Premades")
             .setStyle("LINK")
             .setURL(messages[1].url),
         ]);
