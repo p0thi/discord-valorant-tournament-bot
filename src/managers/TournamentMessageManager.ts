@@ -200,10 +200,13 @@ export default class TournamentMessageManager {
         }
         const mainChannel = mainMessage.channel as TextChannel;
         for (const id of this.tournament.messageIds) {
+          if (result.find((m) => m.id === id)) {
+            continue;
+          }
           try {
             const message = await mainChannel.messages
               .fetch(id)
-              .catch((e) => console.log("Could not fetch message"));
+              .catch((e) => console.log("Could not fetch message:", e.message));
             if (message && !result.find((m) => m.id === message.id)) {
               result.push(message);
               TournamentMessageManager._messageInstances
@@ -316,7 +319,8 @@ export default class TournamentMessageManager {
     ) as TextChannel;
     const content = await new TournamentMainMessage().create(
       this,
-      await this.parentManager.populateTournament()
+      await this.parentManager.populateTournament(),
+      []
     );
     const message = await channel.send(content[0]);
     return message;
@@ -343,26 +347,41 @@ export default class TournamentMessageManager {
         }
 
         try {
-          const mainMessageContent = await new TournamentMainMessage().create(
-            this,
-            populatedTournament
-          );
-          await mainMessage.edit(mainMessageContent[0]);
-          mainMessage.suppressEmbeds(false);
-
           const threadMessages = await this.getThreadMessages();
           const messages = await this.getMessages();
 
+          const participantMessages =
+            await new TournamentParticipantMessage().create(
+              this,
+              populatedTournament,
+              messages,
+              0
+            );
+          const premadeMessages = await new TournamentPremadeMessage().create(
+            this,
+            populatedTournament,
+            messages,
+            participantMessages.length
+          );
           const messageOptions: MessageOptions[] = [
-            ...(await new TournamentParticipantMessage().create(
-              this,
-              populatedTournament
-            )),
-            ...(await new TournamentPremadeMessage().create(
-              this,
-              populatedTournament
-            )),
+            ...participantMessages,
+            ...premadeMessages,
           ];
+
+          const mainMessageContent = await new TournamentMainMessage().create(
+            this,
+            populatedTournament,
+            [
+              messages[0],
+              ...(messages.length > participantMessages.length
+                ? [messages[participantMessages.length]]
+                : []),
+            ]
+          );
+
+          /* await */ mainMessage.edit(mainMessageContent[0]);
+          mainMessage.suppressEmbeds(false);
+
           const mainChannel = mainMessage.channel as TextChannel;
           let newMessages: Message[] = await Promise.all(
             messageOptions.map(
@@ -418,8 +437,26 @@ export default class TournamentMessageManager {
             )
           );
 
-          this.threadMessages = threadMessages;
-          this.messages = messages;
+          const unusedMessages = messages.filter(
+            (m) => !newMessages.find((x) => x.id === m.id)
+          );
+
+          const unusedThreadMessages = threadMessages.filter(
+            (m) => !newThreadMessages.find((x) => x.id === m.id)
+          );
+
+          this.threadMessages = newThreadMessages;
+          this.messages = newMessages;
+
+          unusedMessages
+            .concat(unusedThreadMessages)
+            .forEach((m) =>
+              m
+                .delete()
+                .catch((e) =>
+                  console.log("could not delete unused message", e.message)
+                )
+            );
 
           if (
             (
@@ -432,16 +469,6 @@ export default class TournamentMessageManager {
           ) {
             mainMessage.pin();
           }
-          newThreadMessages.concat(newMessages).forEach((m) => {
-            m.suppressEmbeds(false);
-            if (
-              thread
-                .permissionsFor(this.guild.client.user)
-                .has("MANAGE_MESSAGES")
-            ) {
-              m.pin();
-            }
-          });
 
           let shouldSaveDocument = false;
           if (
@@ -468,7 +495,9 @@ export default class TournamentMessageManager {
           if (shouldSaveDocument) {
             await this.tournament.ownerDocument().save();
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error(e);
+        }
       });
   }
 
@@ -482,6 +511,7 @@ export default class TournamentMessageManager {
 
       const threadMessages = await this.getThreadMessages();
       const thread = await this.getThreadFromMessage(mainMessage);
+      const messages = await this.getMessages();
       await Promise.allSettled(
         threadMessages.map((m) => m.edit({ components: [] }))
       );
@@ -490,7 +520,8 @@ export default class TournamentMessageManager {
         .catch((e) => console.error("could not delete thread"));
       mainMessage.delete();
       this.mainMessage = null;
-      return [mainMessage, ...threadMessages];
+      messages.forEach((m) => m.delete());
+      return [mainMessage, ...messages, ...threadMessages];
     } catch (e) {
       return undefined;
     }

@@ -1,6 +1,8 @@
 import {
+  Message,
   MessageActionRow,
   MessageButton,
+  MessageEmbed,
   MessageOptions,
   MessageSelectMenu,
 } from "discord.js";
@@ -16,12 +18,14 @@ import emojis from "../util/emojis";
 import ITournamentMessage from "./ITournamentMessage";
 
 const dbManager = DatabaseManager.getInstance();
-const minParticipants = 1;
+const minParticipants = 2;
 
 export default class TournamentPremadeMessage implements ITournamentMessage {
   async create(
     tournamentManager: TournamentMessageManager,
-    populatedTournament: ITournamentSetting
+    populatedTournament: ITournamentSetting,
+    messages: Message[],
+    startId: number
   ): Promise<MessageOptions[]> {
     let selectMenuRows;
 
@@ -110,12 +114,8 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       ];
     }
 
-    const row2 = new MessageActionRow().addComponents([
-      new MessageButton()
-        .setCustomId(`leave_groups#${tournamentManager.uniqueTournamentId}`)
-        .setLabel("Reset my premade selection")
-        .setStyle("SECONDARY"),
-    ]);
+    const premadeGroups =
+      await tournamentManager.parentManager.getPremadeGroups();
 
     const embed1 = {
       title: `${populatedTournament.name} - Premade Groups`,
@@ -157,6 +157,30 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       ],
     };
 
+    const row2 = new MessageActionRow().addComponents([
+      new MessageButton()
+        .setCustomId(`leave_groups#${tournamentManager.uniqueTournamentId}`)
+        .setLabel("Reset my premade selection")
+        .setStyle("SECONDARY"),
+      ...(messages.length >= startId + 1 &&
+      !!messages[startId + 1] &&
+      premadeGroups.length > 0
+        ? [
+            new MessageButton()
+              .setStyle("LINK")
+              .setLabel("Groups 1 - 10 ➡️")
+              .setURL(messages[startId + 1].url),
+          ]
+        : []),
+    ]);
+
+    const result: MessageOptions[] = [
+      {
+        embeds: [embed1],
+        components: [...selectMenuRows, row2],
+      } as MessageOptions,
+    ];
+
     const participantHighestValorantAccounts =
       populatedTournament.participants.map(
         (p) => dbManager.getDbUserMaxElo(p)[0]
@@ -169,9 +193,10 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
         .map((p) => p.elo)
         .reduce((a, b) => a + b, 0) / participantHighestValorantAccounts.length;
 
-    const groupEmbeds = (
-      await tournamentManager.parentManager.getPremadeGroups()
-    ).map((g, i) => {
+    const groupEmbeds = premadeGroups.map((g, i) => {
+      // const groupEmbeds = Array(11)
+      //   .fill((await tournamentManager.parentManager.getPremadeGroups())[0])
+      //   .map((g, i) => {
       const availablePremades = g.filter((p) => p.status < 1);
       const nonAvailablePremades = g.filter((p) => p.status >= 1);
 
@@ -188,7 +213,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
           .reduce((a, c) => a + c, 0) / availablePremades.length
       );
 
-      return {
+      return new MessageEmbed({
         title: `Group ${i + 1}`,
         description: `Size: **${
           availablePremades.length
@@ -238,14 +263,103 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
               ]
             : []),
         ],
-      };
+      });
     });
 
-    return [
-      {
-        embeds: [embed1, ...groupEmbeds],
-        components: [...selectMenuRows, row2],
-      } as MessageOptions,
-    ];
+    let lastMessageOptions = result[result.length - 1];
+    for (const [i, groupEmbed] of groupEmbeds.entries()) {
+      const hasPrev = i != 0 && messages.length >= startId + result.length;
+      const hasNext = messages.length >= startId + result.length + 1;
+      if (result.length <= 1) {
+        result.push(
+          this.prepareMessageOption(
+            hasPrev ? messages[startId + result.length - 1] : undefined,
+            hasNext ? messages[startId + result.length + 1] : undefined,
+            hasPrev
+              ? `${(result.length - 2) * 10 + 1} - ${(result.length - 1) * 10}`
+              : undefined,
+            hasNext
+              ? `${result.length * 10 + 1} - ${result.length * 10}`
+              : undefined
+          )
+        );
+        lastMessageOptions = result[result.length - 1];
+      }
+      if (
+        lastMessageOptions.embeds.length !== 0 &&
+        (lastMessageOptions.embeds
+          .map((e) => (e as MessageEmbed).length)
+          .reduce((a, b) => a + b, 0) +
+          groupEmbed.length >
+          6000 ||
+          lastMessageOptions.embeds.length >= 10)
+      ) {
+        const newMessageOptions = this.prepareMessageOption(
+          hasPrev ? messages[startId + result.length - 1] : undefined,
+          hasNext ? messages[startId + result.length + 1] : undefined,
+          hasPrev
+            ? `${(result.length - 2) * 10 + 1} - ${(result.length - 1) * 10}`
+            : undefined,
+          hasNext
+            ? `${result.length * 10 + 1} - ${result.length * 10}`
+            : undefined
+        );
+
+        console.log(1);
+        result.push(newMessageOptions);
+        lastMessageOptions = newMessageOptions;
+      }
+      lastMessageOptions.embeds.push(groupEmbed);
+    }
+
+    return result;
+  }
+
+  private prepareMessageOption(
+    prevMessage: Message,
+    nextMessage: Message,
+    prevNumbers: string,
+    nextNumbers: string
+  ): MessageOptions {
+    return {
+      content: undefined,
+      components: [
+        ...(!!prevMessage || !!nextMessage
+          ? [
+              new MessageActionRow().addComponents([
+                ...(!!prevMessage
+                  ? [
+                      new MessageButton()
+                        .setStyle("LINK")
+                        .setLabel(`⬅️ Groups ${prevNumbers}`)
+                        .setURL(prevMessage.url),
+                    ]
+                  : [
+                      new MessageButton()
+                        .setStyle("LINK")
+                        .setURL("https://example.com/")
+                        .setLabel("⬅️ Not available")
+                        .setDisabled(),
+                    ]),
+                ...(!!nextMessage
+                  ? [
+                      new MessageButton()
+                        .setStyle("LINK")
+                        .setLabel(`Groupss ${nextNumbers} ➡️`)
+                        .setURL(nextMessage.url),
+                    ]
+                  : [
+                      new MessageButton()
+                        .setStyle("LINK")
+                        .setURL("https://example.com/")
+                        .setLabel("Not available ➡️")
+                        .setDisabled(),
+                    ]),
+              ]),
+            ]
+          : []),
+      ],
+      embeds: [],
+    };
   }
 }

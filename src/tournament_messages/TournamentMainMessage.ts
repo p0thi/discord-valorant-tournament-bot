@@ -1,6 +1,7 @@
 import {
   Collection,
   GuildMember,
+  Message,
   MessageActionRow,
   MessageButton,
   MessageOptions,
@@ -16,7 +17,8 @@ const dbManager = DatabaseManager.getInstance();
 export default class TournamentMainMessage implements ITournamentMessage {
   async create(
     tournametMessage: TournamentMessageManager,
-    populatedTournament: ITournamentSetting
+    populatedTournament: ITournamentSetting,
+    messages: Message[]
   ): Promise<MessageOptions[]> {
     const row1 = new MessageActionRow().addComponents([
       new MessageButton()
@@ -32,6 +34,25 @@ export default class TournamentMainMessage implements ITournamentMessage {
         .setEmoji("❔")
         .setStyle("SECONDARY"),
     ]);
+
+    const row2 = new MessageActionRow();
+
+    if (messages && messages.length > 0) {
+      row2.addComponents([
+        new MessageButton()
+          .setLabel("⏬ Participants List")
+          .setStyle("LINK")
+          .setURL(messages[0].url),
+      ]);
+      if (messages.length > 1) {
+        row2.addComponents([
+          new MessageButton()
+            .setLabel("⏬ Premades Message")
+            .setStyle("LINK")
+            .setURL(messages[1].url),
+        ]);
+      }
+    }
 
     const embed1 = {
       title: populatedTournament.name,
@@ -66,7 +87,7 @@ export default class TournamentMainMessage implements ITournamentMessage {
 
     const result = {
       embeds: [embed1],
-      components: [row1],
+      components: [row1, row2],
     } as MessageOptions;
 
     return [result];
