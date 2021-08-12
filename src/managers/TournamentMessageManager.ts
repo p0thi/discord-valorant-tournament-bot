@@ -382,6 +382,17 @@ export default class TournamentMessageManager {
           );
 
           promisesToWaitFor.push(mainMessage.edit(mainMessageContent[0]));
+          if (
+            (
+              (await this.guild.channels.fetch(
+                populatedTournament.channelId
+              )) as TextChannel
+            )
+              .permissionsFor(this.guild.client.user)
+              .has("MANAGE_MESSAGES")
+          ) {
+            promisesToWaitFor.push(mainMessage.pin());
+          }
           promisesToWaitFor.push(mainMessage.suppressEmbeds(false));
 
           const mainChannel = mainMessage.channel as TextChannel;
@@ -496,18 +507,6 @@ export default class TournamentMessageManager {
                   )
               )
             );
-
-          if (
-            (
-              (await this.guild.channels.fetch(
-                populatedTournament.channelId
-              )) as TextChannel
-            )
-              .permissionsFor(this.guild.client.user)
-              .has("MANAGE_MESSAGES")
-          ) {
-            promisesToWaitFor.push(mainMessage.pin());
-          }
 
           let shouldSaveDocument = false;
           if (
