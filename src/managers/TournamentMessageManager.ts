@@ -335,6 +335,8 @@ export default class TournamentMessageManager {
         if (!populatedTournament) {
           return;
         }
+        console.log("Editing messages...");
+        const promisesToWaitFor: Promise<any>[] = [];
         const mainMessage = await this.getMainMessage();
 
         if (!mainMessage) {
@@ -379,7 +381,7 @@ export default class TournamentMessageManager {
             ]
           );
 
-          /* await */ mainMessage.edit(mainMessageContent[0]);
+          mainMessage.edit(mainMessageContent[0]);
           mainMessage.suppressEmbeds(false);
 
           const mainChannel = mainMessage.channel as TextChannel;
@@ -404,6 +406,24 @@ export default class TournamentMessageManager {
                 })
             )
           );
+          // let newMessages: Message[] = [];
+          // for (const [i, option] of messageOptions.entries()) {
+          //   if (messages.length > i) {
+          //     const editedMessage = await messages[i]
+          //       .edit(option)
+          //       .catch((e) => {
+          //         console.error(e, "could not edit message");
+          //       });
+          //     if (editedMessage) {
+          //       newMessages.push(editedMessage);
+          //     } else {
+          //       newMessages.push(await mainChannel.send(option));
+          //     }
+          //   } else {
+          //     newMessages.push(await mainChannel.send(option));
+          //   }
+          // }
+
           messages.push(
             ...newMessages.filter((m) => !messages.find((x) => x.id === m.id))
           );
@@ -430,6 +450,23 @@ export default class TournamentMessageManager {
                 })
             )
           );
+          // let newThreadMessages: Message[] = [];
+          // for (const [i, option] of threadMessageOptions.entries()) {
+          //   if (threadMessages.length > i) {
+          //     const editedMessage = await threadMessages[i]
+          //       .edit(option)
+          //       .catch((e) => {
+          //         console.error(e, "could not edit message");
+          //       });
+          //     if (editedMessage) {
+          //       newThreadMessages.push(editedMessage);
+          //     } else {
+          //       newThreadMessages.push(await thread.send(option));
+          //     }
+          //   } else {
+          //     newThreadMessages.push(await thread.send(option));
+          //   }
+          // }
 
           threadMessages.push(
             ...newThreadMessages.filter(
@@ -451,11 +488,13 @@ export default class TournamentMessageManager {
           unusedMessages
             .concat(unusedThreadMessages)
             .forEach((m) =>
-              m
-                .delete()
-                .catch((e) =>
-                  console.log("could not delete unused message", e.message)
-                )
+              promisesToWaitFor.push(
+                m
+                  .delete()
+                  .catch((e) =>
+                    console.log("could not delete unused message", e.message)
+                  )
+              )
             );
 
           if (
@@ -467,7 +506,7 @@ export default class TournamentMessageManager {
               .permissionsFor(this.guild.client.user)
               .has("MANAGE_MESSAGES")
           ) {
-            mainMessage.pin();
+            promisesToWaitFor.push(mainMessage.pin());
           }
 
           let shouldSaveDocument = false;
@@ -493,8 +532,9 @@ export default class TournamentMessageManager {
             shouldSaveDocument = true;
           }
           if (shouldSaveDocument) {
-            await this.tournament.ownerDocument().save();
+            promisesToWaitFor.push(this.tournament.ownerDocument().save());
           }
+          await Promise.allSettled(promisesToWaitFor);
         } catch (e) {
           console.error(e);
         }
