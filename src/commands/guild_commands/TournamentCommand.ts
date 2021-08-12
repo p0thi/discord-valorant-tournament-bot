@@ -399,11 +399,6 @@ export default class TournamentCommand
                     return;
                   }
 
-                  const tournamentManager = new TournamentManager(
-                    this.guild,
-                    tournament
-                  );
-
                   if (tournament.participants.length >= 100) {
                     interaction.followUp({
                       content: "The tournament is full.",
@@ -421,6 +416,10 @@ export default class TournamentCommand
                   }
 
                   tournament.participants.addToSet(dbUserToAdd);
+                  const tournamentManager = new TournamentManager(
+                    this.guild,
+                    tournament
+                  );
                   await tournament.ownerDocument().save();
 
                   tournamentManager.tournamentMessage.editAllMessages();
