@@ -344,7 +344,7 @@ export default class TournamentMessageManager {
         }
         const thread = await this.getThreadFromMessage(mainMessage);
 
-        if (thread.archived) {
+        if (!thread || thread.archived) {
           return;
         }
 
