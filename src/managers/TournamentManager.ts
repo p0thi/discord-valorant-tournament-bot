@@ -18,11 +18,7 @@ export default class TournamentManager {
   constructor(guild: Guild, tournament: ITournamentSetting) {
     this.guild = guild;
     this.tournament = tournament;
-    this.tournamentMessage = new TournamentMessageManager(
-      this.guild,
-      this.tournament,
-      this
-    );
+    this.tournamentMessage = new TournamentMessageManager(this.guild, this);
   }
 
   async getPremadeGroups(): Promise<PremadeParticipant[][]> {

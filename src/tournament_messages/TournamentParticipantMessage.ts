@@ -10,7 +10,7 @@ import {
 } from "discord.js";
 import DatabaseManager from "../db/DatabaseManager";
 import { ITournamentSetting } from "../db/interfaces/IGuild";
-import { IValoAccountInfo } from "../db/interfaces/IUser";
+import IUser, { IValoAccountInfo } from "../db/interfaces/IUser";
 import TournamentMessageManager from "../managers/TournamentMessageManager";
 import emojis from "../util/emojis";
 import ITournamentMessage from "./ITournamentMessage";
@@ -37,11 +37,18 @@ export default class TournamentParticipantMessage
 
     const embeds: MessageEmbed[] = [];
 
+    populatedTournament.participants.remove(
+      ...populatedTournament.participants.filter(
+        (p) => !participantMembers.has(p.discordId)
+      )
+    );
+
     let fieldCounter = 1;
     for (const participant of populatedTournament.participants) {
       // for (const participant of Array(25).fill(
       //   populatedTournament.participants[0]
       // )) {
+
       if (embeds.length === 0) {
         embeds.push(
           new MessageEmbed({

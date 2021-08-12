@@ -38,7 +38,6 @@ export default class TournamentMessageManager {
   private static _editMessagesQueues = new Map<string, Queue>();
 
   guild: Guild;
-  tournament: ITournamentSetting;
   parentManager: TournamentManager;
 
   private _threadMessages: Message[];
@@ -46,20 +45,15 @@ export default class TournamentMessageManager {
   private _mainMessage: Message;
 
   get uniqueTournamentId(): string {
-    return `${this.guild.id}_${this.tournament.id}`;
+    return `${this.guild.id}_${this.parentManager.tournament.id}`;
   }
 
   private waitingForThreadMessages: Array<(result: Message[]) => void> = [];
   private waitingForMessages: Array<(result: Message[]) => void> = [];
   private waitingForMainMessage: Array<(result: Message) => void> = [];
 
-  constructor(
-    guild: Guild,
-    tournament: ITournamentSetting,
-    manager: TournamentManager
-  ) {
+  constructor(guild: Guild, manager: TournamentManager) {
     this.guild = guild;
-    this.tournament = tournament;
     this.parentManager = manager;
 
     if (
@@ -75,7 +69,7 @@ export default class TournamentMessageManager {
   }
 
   private async fetchOrCreateMessages() {
-    if (!this.tournament) {
+    if (!this.parentManager.tournament) {
       return;
     }
     let result: Message;
@@ -91,14 +85,14 @@ export default class TournamentMessageManager {
       result = TournamentMessageManager._mainMessageInstances.get(
         this.uniqueTournamentId
       );
-    } else if (this.tournament.mainMessageId) {
+    } else if (this.parentManager.tournament.mainMessageId) {
       let message;
       try {
         message = await (
           this.guild.channels.cache.get(
-            this.tournament.channelId
+            this.parentManager.tournament.channelId
           ) as TextChannel
-        ).messages.fetch(this.tournament.mainMessageId);
+        ).messages.fetch(this.parentManager.tournament.mainMessageId);
       } catch (e) {
         message = await this.createMainMessage();
       }
@@ -113,9 +107,9 @@ export default class TournamentMessageManager {
     }
 
     this.mainMessage = result;
-    if (this.tournament.mainMessageId !== result.id) {
-      this.tournament.mainMessageId = result.id;
-      await this.tournament.ownerDocument().save();
+    if (this.parentManager.tournament.mainMessageId !== result.id) {
+      this.parentManager.tournament.mainMessageId = result.id;
+      await this.parentManager.tournament.ownerDocument().save();
     }
 
     this.editAllMessages();
@@ -138,8 +132,8 @@ export default class TournamentMessageManager {
     } else {
       try {
         result = await message.startThread({
-          name: `${this.tournament.region.toUpperCase()} - ${
-            this.tournament.name
+          name: `${this.parentManager.tournament.region.toUpperCase()} - ${
+            this.parentManager.tournament.name
           }`,
           autoArchiveDuration: message.guild.features.includes(
             "SEVEN_DAY_THREAD_ARCHIVE"
@@ -192,14 +186,17 @@ export default class TournamentMessageManager {
           )
         );
       }
-      if (this.tournament.messageIds && this.tournament.messageIds.length > 0) {
+      if (
+        this.parentManager.tournament.messageIds &&
+        this.parentManager.tournament.messageIds.length > 0
+      ) {
         const mainMessage = await this.getMainMessage();
         if (!mainMessage) {
           this.waitingForMessages.push(resolve);
           return;
         }
         const mainChannel = mainMessage.channel as TextChannel;
-        for (const id of this.tournament.messageIds) {
+        for (const id of this.parentManager.tournament.messageIds) {
           if (result.find((m) => m.id === id)) {
             continue;
           }
@@ -217,14 +214,14 @@ export default class TournamentMessageManager {
         }
       }
       if (
-        !this.tournament.messageIds ||
-        this.tournament.messageIds.length !== result.length ||
-        !this.tournament.messageIds.every((id) =>
+        !this.parentManager.tournament.messageIds ||
+        this.parentManager.tournament.messageIds.length !== result.length ||
+        !this.parentManager.tournament.messageIds.every((id) =>
           result.find((m) => m.id === id)
         )
       ) {
-        this.tournament.messageIds = result.map((m) => m.id);
-        await this.tournament.ownerDocument().save();
+        this.parentManager.tournament.messageIds = result.map((m) => m.id);
+        await this.parentManager.tournament.ownerDocument().save();
       }
 
       resolve(result);
@@ -248,8 +245,8 @@ export default class TournamentMessageManager {
         );
       }
       if (
-        this.tournament.threadMessageIds &&
-        this.tournament.threadMessageIds.length > 0
+        this.parentManager.tournament.threadMessageIds &&
+        this.parentManager.tournament.threadMessageIds.length > 0
       ) {
         const mainMessage = await this.getMainMessage();
         if (!mainMessage) {
@@ -257,7 +254,7 @@ export default class TournamentMessageManager {
           return;
         }
         const thread = await this.getThreadFromMessage(mainMessage);
-        for (const id of this.tournament.threadMessageIds) {
+        for (const id of this.parentManager.tournament.threadMessageIds) {
           try {
             const message = await thread.messages.fetch(id);
             if (!result.find((m) => m.id === message.id)) {
@@ -270,14 +267,17 @@ export default class TournamentMessageManager {
         }
       }
       if (
-        !this.tournament.threadMessageIds ||
-        this.tournament.threadMessageIds.length !== result.length ||
-        !this.tournament.threadMessageIds.every((id) =>
+        !this.parentManager.tournament.threadMessageIds ||
+        this.parentManager.tournament.threadMessageIds.length !==
+          result.length ||
+        !this.parentManager.tournament.threadMessageIds.every((id) =>
           result.find((m) => m.id === id)
         )
       ) {
-        this.tournament.threadMessageIds = result.map((m) => m.id);
-        await this.tournament.ownerDocument().save();
+        this.parentManager.tournament.threadMessageIds = result.map(
+          (m) => m.id
+        );
+        await this.parentManager.tournament.ownerDocument().save();
       }
 
       resolve(result);
@@ -315,7 +315,7 @@ export default class TournamentMessageManager {
 
   private async createMainMessage(): Promise<Message> {
     const channel = this.guild.channels.cache.get(
-      this.tournament.channelId
+      this.parentManager.tournament.channelId
     ) as TextChannel;
     const content = await new TournamentMainMessage().create(
       this,
@@ -381,8 +381,8 @@ export default class TournamentMessageManager {
             ]
           );
 
-          mainMessage.edit(mainMessageContent[0]);
-          mainMessage.suppressEmbeds(false);
+          promisesToWaitFor.push(mainMessage.edit(mainMessageContent[0]));
+          promisesToWaitFor.push(mainMessage.suppressEmbeds(false));
 
           const mainChannel = mainMessage.channel as TextChannel;
           let newMessages: Message[] = await Promise.all(
@@ -500,7 +500,7 @@ export default class TournamentMessageManager {
           if (
             (
               (await this.guild.channels.fetch(
-                this.tournament.channelId
+                populatedTournament.channelId
               )) as TextChannel
             )
               .permissionsFor(this.guild.client.user)
@@ -511,30 +511,42 @@ export default class TournamentMessageManager {
 
           let shouldSaveDocument = false;
           if (
-            !this.tournament.threadMessageIds ||
-            this.tournament.threadMessageIds.length !== threadMessages.length ||
-            !this.tournament.threadMessageIds.every((id) =>
+            this.parentManager.tournament.participants.length !==
+            populatedTournament.participants.length
+          ) {
+            shouldSaveDocument = true;
+          }
+          if (
+            !populatedTournament.threadMessageIds ||
+            populatedTournament.threadMessageIds.length !==
+              threadMessages.length ||
+            !populatedTournament.threadMessageIds.every((id) =>
               threadMessages.find((m) => m.id === id)
             )
           ) {
-            this.tournament.threadMessageIds = threadMessages.map((m) => m.id);
+            populatedTournament.threadMessageIds = threadMessages.map(
+              (m) => m.id
+            );
             shouldSaveDocument = true;
           }
 
           if (
-            !this.tournament.messageIds ||
-            this.tournament.messageIds.length !== messages.length ||
-            !this.tournament.messageIds.every((id) =>
+            !populatedTournament.messageIds ||
+            populatedTournament.messageIds.length !== messages.length ||
+            !populatedTournament.messageIds.every((id) =>
               messages.find((m) => m.id === id)
             )
           ) {
-            this.tournament.messageIds = messages.map((m) => m.id);
+            populatedTournament.messageIds = messages.map((m) => m.id);
             shouldSaveDocument = true;
           }
           if (shouldSaveDocument) {
-            promisesToWaitFor.push(this.tournament.ownerDocument().save());
+            promisesToWaitFor.push(populatedTournament.ownerDocument().save());
+            this.parentManager.tournament = populatedTournament;
           }
-          await Promise.allSettled(promisesToWaitFor);
+          await Promise.allSettled(promisesToWaitFor).catch((e) =>
+            console.log("could not wait for all promises")
+          );
         } catch (e) {
           console.error(e);
         }

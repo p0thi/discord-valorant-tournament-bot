@@ -8,7 +8,7 @@ import {
 } from "discord.js";
 import DatabaseManager from "../db/DatabaseManager";
 import { ITournamentSetting } from "../db/interfaces/IGuild";
-import { IValoAccountInfo } from "../db/interfaces/IUser";
+import IUser, { IValoAccountInfo } from "../db/interfaces/IUser";
 import {
   PremadeStatus,
   PremateStatusEmoji,
@@ -36,6 +36,12 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
 
       const labelMaxLength = 25;
       const descriptionMaxLength = 50;
+
+      populatedTournament.participants.remove(
+        ...populatedTournament.participants.filter(
+          (p) => !discordMembers.has(p.discordId)
+        )
+      );
 
       const selectOptions = [
         ...populatedTournament.participants
