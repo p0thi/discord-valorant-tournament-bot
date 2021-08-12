@@ -128,7 +128,8 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
       description: "Groups of players, who want to play in one team.",
       color: "#008ea1",
       fields: [
-        ...(populatedTournament.participants.length >= minParticipants
+        ...(populatedTournament.participants.length >= minParticipants &&
+        premadeGroups.length > 0
           ? [
               {
                 name: `${PremateStatusEmoji.get(PremadeStatus.READY)} Accepted`,
