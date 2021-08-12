@@ -83,11 +83,6 @@ export default class InteractionHandler {
 
           const tournament = dbGuild.tournamentSettings.id(tournamentId);
           if (tournament) {
-            const tournamentManager = new TournamentManager(
-              interaction.guild,
-              tournament
-            );
-
             switch (command) {
               case "tournament_help":
                 {
@@ -151,6 +146,10 @@ export default class InteractionHandler {
 
                   tournament.participants.addToSet(dbUser);
                   await tournament.ownerDocument().save();
+                  const tournamentManager = new TournamentManager(
+                    interaction.guild,
+                    tournament
+                  );
                   tournamentManager.tournamentMessage.editAllMessages();
 
                   tournamentManager.tournamentMessage
@@ -173,6 +172,10 @@ export default class InteractionHandler {
                   await InteractionHandler.leaveGroups(dbUser, tournament);
                   tournament.participants.remove(dbUser);
                   await tournament.ownerDocument().save();
+                  const tournamentManager = new TournamentManager(
+                    interaction.guild,
+                    tournament
+                  );
                   tournamentManager.tournamentMessage.editAllMessages();
 
                   tournamentManager.tournamentMessage
@@ -209,6 +212,11 @@ export default class InteractionHandler {
 
                   const otherParticipants = selectMenuInteraction.values.filter(
                     (discordId) => discordId !== dbUser.discordId
+                  );
+
+                  const tournamentManager = new TournamentManager(
+                    interaction.guild,
+                    tournament
                   );
 
                   const populatedTournament =
@@ -287,6 +295,10 @@ export default class InteractionHandler {
                       "You are no longer a member of any premade groups.",
                     ephemeral: true,
                   });
+                  const tournamentManager = new TournamentManager(
+                    interaction.guild,
+                    tournament
+                  );
                   tournamentManager.tournamentMessage.editAllMessages();
                 }
                 break;
