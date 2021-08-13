@@ -102,7 +102,8 @@ export default class ShowMemberInfo
                       {
                         name: "Rank",
                         value:
-                          currentValoAccount.currenttier === 0
+                          currentValoAccount.currenttier === 0 ||
+                          currentValoAccount.elo === 0
                             ? "No Rank"
                             : `<:${
                                 emojis
