@@ -184,7 +184,8 @@ export default class ModerateCommand
                         });
                         const [resp, user] = await api.refreshUser(
                           dbUser,
-                          region as string
+                          region as string,
+                          interaction.client
                         );
 
                         if (!user) {
