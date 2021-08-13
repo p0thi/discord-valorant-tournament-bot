@@ -17,7 +17,6 @@ import TournamentMessageManager from "../managers/TournamentMessageManager";
 import emojis from "../util/emojis";
 import ITournamentMessage from "./ITournamentMessage";
 
-const dbManager = DatabaseManager.getInstance();
 const minParticipants = 2;
 
 export default class TournamentPremadeMessage implements ITournamentMessage {
@@ -27,6 +26,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
     messages: Message[],
     startId: number
   ): Promise<MessageOptions[]> {
+    const dbManager = DatabaseManager.getInstance();
     let selectMenuRows;
 
     if (populatedTournament.participants.length >= minParticipants) {

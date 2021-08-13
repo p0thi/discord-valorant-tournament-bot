@@ -1,10 +1,14 @@
 import { Guild } from "discord.js";
-import IGuild from "../../db/interfaces/IGuild";
+import { ContextMenuCommandTemplate } from "../ContextMenuCommandCreator";
 import { SlashCommandTemplate } from "../SlashCommandCreator";
 import AObservableCommand from "./AObservableCommand";
-import IGuildCommandObserver from "./IGuildCommandObserver";
 
-export default interface IGuildCommand extends AObservableCommand {
+export default interface IGuildSlashCommand extends AObservableCommand {
   guild: Guild;
   generateTemplate: () => Promise<SlashCommandTemplate>;
+}
+
+export interface IGuildContextMenuCommand extends AObservableCommand {
+  guild: Guild;
+  generateTemplate: () => Promise<ContextMenuCommandTemplate>;
 }

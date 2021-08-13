@@ -12,8 +12,6 @@ import TournamentManager from "../managers/TournamentManager";
 import ITournamentMessage from "./ITournamentMessage";
 import TournamentMessageManager from "../managers/TournamentMessageManager";
 
-const dbManager = DatabaseManager.getInstance();
-
 export default class TournamentMainMessage implements ITournamentMessage {
   async create(
     tournametMessage: TournamentMessageManager,
@@ -76,7 +74,9 @@ export default class TournamentMainMessage implements ITournamentMessage {
             Math.ceil(
               populatedTournament.participants
                 .map((p) => {
-                  const elo = dbManager.getDbUserMaxElo(p)[0]?.elo || 0;
+                  const elo =
+                    DatabaseManager.getInstance().getDbUserMaxElo(p)[0]?.elo ||
+                    0;
                   return elo > 0 ? elo : 750;
                 })
                 .reduce((a, b) => a + b, 0) /

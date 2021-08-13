@@ -1,8 +1,6 @@
 import {
   AwaitMessagesOptions,
-  ButtonInteraction,
   DMChannel,
-  EmbedField,
   InteractionCollector,
   Message,
   MessageActionRow,
@@ -11,29 +9,21 @@ import {
   MessageComponentInteraction,
   MessageEmbed,
   MessageOptions,
-  MessagePayload,
   MessageSelectMenu,
   SelectMenuInteraction,
-  TextChannel,
   User,
-  WebhookMessageOptions,
 } from "discord.js";
-import {
-  InteractionResponseTypes,
-  MessageComponentTypes,
-} from "discord.js/typings/enums";
 import ValorantApi, {
   LinkUserResponseTypes,
   RefreshUserResponseTypes,
 } from "./api/ValorantApi";
-import DatabaseManager from "./db/DatabaseManager";
 import { v1 as uuidv1 } from "uuid";
 
-import log from "./util/log";
 import { IValoAccountInfo } from "./db/interfaces/IUser";
+import DatabaseManager from "./db/DatabaseManager";
 
 const api = ValorantApi.getInstatnce();
-const dbManager = DatabaseManager.getInstance();
+// const dbManager = DatabaseManager.getInstance();
 
 export default class Conversation {
   static activeConversations: Map<string, Conversation> = new Map();
@@ -285,7 +275,9 @@ export default class Conversation {
     channel: DMChannel,
     author: User
   ): Promise<Conversation> {
-    const dbUser = await dbManager.getUser({ discordId: author.id });
+    const dbUser = await DatabaseManager.getInstance().getUser({
+      discordId: author.id,
+    });
     const conversation = Conversation.createConversation(
       channel,
       author,
@@ -418,14 +410,17 @@ export default class Conversation {
     channel: DMChannel,
     author: User
   ): Promise<Conversation> {
-    const dbUser = await dbManager.getUser({ discordId: author.id });
+    const dbUser = await DatabaseManager.getInstance().getUser({
+      discordId: author.id,
+    });
     const conversation = Conversation.createConversation(
       channel as DMChannel,
       author,
       async (conv) => {
         const result = await api.refreshUser(
           dbUser,
-          conv.actionStack[0].result
+          conv.actionStack[0].result,
+          author.client
         );
 
         console.log(result);

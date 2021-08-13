@@ -15,8 +15,6 @@ import TournamentMessageManager from "../managers/TournamentMessageManager";
 import emojis from "../util/emojis";
 import ITournamentMessage from "./ITournamentMessage";
 
-const dbManager = DatabaseManager.getInstance();
-
 export default class TournamentParticipantMessage
   implements ITournamentMessage
 {
@@ -70,7 +68,7 @@ export default class TournamentParticipantMessage
       let lastField = lastEmbed.fields[lastEmbed.fields.length - 1];
 
       const [maxEloValoAccountInfo, region] =
-        dbManager.getDbUserMaxElo(participant);
+        DatabaseManager.getInstance().getDbUserMaxElo(participant);
       const regionValoAccountInfo =
         participant[`${populatedTournament.region}_account`];
       const participantMention = `<@${participant.discordId}>`;

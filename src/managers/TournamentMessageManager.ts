@@ -1,34 +1,15 @@
 import {
-  Collection,
-  EmbedField,
   Guild,
-  GuildChannel,
-  GuildMember,
-  LimitedCollection,
   Message,
-  MessageActionRow,
-  MessageButton,
-  MessageEmbed,
-  MessageEmbedThumbnail,
   MessageOptions,
-  MessageSelectMenu,
   TextChannel,
   ThreadChannel,
 } from "discord.js";
-import { MessageButtonStyles } from "discord.js/typings/enums";
-import TournamentCommand from "../commands/guild_commands/TournamentCommand";
 import DatabaseManager from "../db/DatabaseManager";
-import { ITournamentSetting } from "../db/interfaces/IGuild";
-import IUser, { IValoAccountInfo } from "../db/interfaces/IUser";
-import TournamentManager, {
-  PremadeStatus,
-  PremateStatusEmoji,
-} from "./TournamentManager";
+import TournamentManager from "./TournamentManager";
 import TournamentMainMessage from "../tournament_messages/TournamentMainMessage";
 import TournamentParticipantMessage from "../tournament_messages/TournamentParticipantMessage";
 import TournamentPremadeMessage from "../tournament_messages/TournamentPremadeMessage";
-
-const dbManager = DatabaseManager.getInstance();
 
 export default class TournamentMessageManager {
   private static _threadMessageInstances = new Map<string, Message[]>();

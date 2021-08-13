@@ -1,12 +1,10 @@
 import { group } from "console";
-import { Guild } from "discord.js";
+import { DMChannel, Guild, Snowflake, User } from "discord.js";
 import { Types } from "mongoose";
 import DatabaseManager from "../db/DatabaseManager";
 import IGuild, { IPremade, ITournamentSetting } from "../db/interfaces/IGuild";
 import IUser from "../db/interfaces/IUser";
 import TournamentMessageManager from "./TournamentMessageManager";
-
-const dbManager = DatabaseManager.getInstance();
 
 export default class TournamentManager {
   guild: Guild;
@@ -238,6 +236,52 @@ export default class TournamentManager {
       if (!participant2Found) return false;
     }
     return true;
+  }
+
+  async addUser(dbUser: IUser, user?: User): Promise<[string, string] | void> {
+    const tryToAddUser = DatabaseManager.getInstance().addUserToTournament(
+      dbUser,
+      this.tournament,
+      user
+    );
+
+    if (tryToAddUser) {
+      return [tryToAddUser, this.tournament.id];
+    }
+
+    await this.tournament.ownerDocument().save();
+    this.tournamentMessage.editAllMessages();
+
+    this.tournamentMessage.getThread().then((thread) => {
+      if (!thread) {
+        return;
+      }
+      thread.members.add(dbUser.discordId as Snowflake);
+    });
+    return;
+  }
+
+  async removeUser(dbUser: IUser): Promise<[string, string] | void> {
+    const tryToRemoveUser =
+      DatabaseManager.getInstance().removeUserFromTournament(
+        dbUser,
+        this.tournament
+      );
+
+    if (tryToRemoveUser) {
+      return [tryToRemoveUser, this.tournament.id];
+    }
+
+    await this.tournament.ownerDocument().save();
+    this.tournamentMessage.editAllMessages();
+
+    this.tournamentMessage.getThread().then((thread) => {
+      if (!thread) {
+        return;
+      }
+      thread.members.remove(dbUser.discordId as Snowflake);
+    });
+    return;
   }
 }
 

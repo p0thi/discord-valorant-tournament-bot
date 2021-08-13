@@ -6,6 +6,8 @@ import MessageHandler from "./handlers/MessageHandler";
 import SlashCommandManager from "./managers/SlashCommandManager";
 import GuildManager from "./managers/GuildManager";
 import InteractionHandler from "./handlers/InteractionHandler";
+import ContextMenuCommandManager from "./managers/ContextMenuCommandManager";
+import ACommandManager from "./managers/ACommandManager";
 
 dotenvConf();
 
@@ -25,6 +27,7 @@ const interactionHandler = new InteractionHandler(bot);
 interactionHandler.start();
 
 const slashCommandManager = new SlashCommandManager(bot);
+const contextMenuCommandManager = new ContextMenuCommandManager(bot);
 const guildManager = new GuildManager(bot);
 
 const token = process.env.TOKEN;
@@ -46,6 +49,12 @@ bot.on("ready", () => {
   setInterval(statusSetter, 1800000);
 
   slashCommandManager.start();
+  contextMenuCommandManager.start();
+
+  ACommandManager.setGuildCommands(
+    slashCommandManager,
+    contextMenuCommandManager
+  );
   guildManager.start();
 });
 

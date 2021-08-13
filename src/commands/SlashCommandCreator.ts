@@ -18,11 +18,11 @@ import CustomApplicationCommand, {
 } from "./CustomApplicationCommand";
 import { v1 as uuidv1 } from "uuid";
 import IGuild, { ITournamentSetting } from "../db/interfaces/IGuild";
-import TournamentCommand from "./guild_commands/TournamentCommand";
-import IGuildCommand from "./guild_commands/IGuildCommand";
-import PermissionCommand from "./guild_commands/PermissionCommand";
-import ModerateCommand from "./guild_commands/ModerateCommand";
+import IGuildSlashCommand from "./guild_commands/IGuildCommand";
+import ModerateCommand from "./guild_commands/slash_commands/ModerateCommand";
 import emojis from "../util/emojis";
+import PermissionCommand from "./guild_commands/slash_commands/PermissionCommand";
+import TournamentCommand from "./guild_commands/slash_commands/TournamentCommand";
 
 const api = ValorantApi.getInstatnce();
 const dbManager = DatabaseManager.getInstance();
@@ -185,7 +185,8 @@ export default abstract class SlashCommandCreator {
 
         const [respType, user] = await api.refreshUser(
           dbUser,
-          region as string
+          region as string,
+          interaction.client
         );
 
         const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
@@ -282,7 +283,9 @@ export default abstract class SlashCommandCreator {
     } as CustomApplicationCommand,
   ];
 
-  static async getAllGuildCommands(guild: Guild): Promise<IGuildCommand[]> {
+  static async getAllGuildSlashCommands(
+    guild: Guild
+  ): Promise<IGuildSlashCommand[]> {
     const commands = [
       TournamentCommand.getInstance(guild),
       PermissionCommand.getInstance(guild),

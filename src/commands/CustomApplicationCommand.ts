@@ -2,6 +2,8 @@ import {
   ApplicationCommand,
   ApplicationCommandPermissionData,
   Client,
+  CommandInteraction,
+  ContextMenuInteraction,
   Guild,
   Snowflake,
 } from "discord.js";
@@ -13,14 +15,18 @@ export enum CommandPermissionRole {
 }
 
 export default class CustomApplicationCommand extends ApplicationCommand {
-  handler: (Interaction) => Promise<void>;
+  handler: (
+    interaction: CommandInteraction | ContextMenuInteraction
+  ) => Promise<void>;
   forOwner: boolean = true;
   role: CommandPermissionRole;
 
   constructor(
     client: Client,
     data: any,
-    handler: (Interaction: any) => Promise<void>,
+    handler: (
+      Interaction: CommandInteraction | ContextMenuInteraction
+    ) => Promise<void>,
     guild?: Guild,
     guildData?: Snowflake,
     forOwner: boolean = true

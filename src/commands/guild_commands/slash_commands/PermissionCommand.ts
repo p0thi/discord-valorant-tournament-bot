@@ -1,23 +1,19 @@
 import { CommandInteraction, Guild } from "discord.js";
 import { Types } from "mongoose";
-import DatabaseManager from "../../db/DatabaseManager";
-import IGuild, { IGuildPermission } from "../../db/interfaces/IGuild";
+import DatabaseManager from "../../../db/DatabaseManager";
+import { IGuildPermission } from "../../../db/interfaces/IGuild";
 import CustomApplicationCommand, {
   CommandPermissionRole,
-} from "../CustomApplicationCommand";
-import SlashCommandCreator, {
-  SlashCommandTemplate,
-} from "../SlashCommandCreator";
-import AObservableCommand from "./AObservableCommand";
-import IGuildCommand from "./IGuildCommand";
-import IObservablePermission from "./IObservablePermission";
-import IPermissionChangeObserver from "./IPermissionChangeObserver";
-
-const dbManager = DatabaseManager.getInstance();
+} from "../../CustomApplicationCommand";
+import { SlashCommandTemplate } from "../../SlashCommandCreator";
+import AObservableCommand from "../AObservableCommand";
+import IGuildSlashCommand from "../IGuildCommand";
+import IObservablePermission from "../IObservablePermission";
+import IPermissionChangeObserver from "../IPermissionChangeObserver";
 
 export default class PermissionCommand
   extends AObservableCommand
-  implements IGuildCommand, IObservablePermission
+  implements IGuildSlashCommand, IObservablePermission
 {
   private static _tournamentCommands: Map<Guild, PermissionCommand> = new Map();
 
@@ -114,7 +110,7 @@ export default class PermissionCommand
             const subCommand = interaction.options.getSubcommand();
 
             interaction.deferReply({ ephemeral: true });
-            const dbGuild = await dbManager.getGuild({
+            const dbGuild = await DatabaseManager.getInstance().getGuild({
               discordId: this.guild.id,
             });
 
@@ -170,6 +166,10 @@ export default class PermissionCommand
                           } as IGuildPermission);
                           await dbGuild.save();
 
+                          this.notifyPermissionObservers(
+                            CommandPermissionRole[category as string]
+                          );
+
                           interaction.followUp({
                             content: `Added permission for **${category}** to role <@&${role}>`,
                             ephemeral: true,
@@ -180,7 +180,8 @@ export default class PermissionCommand
                             ephemeral: true,
                           });
                         }
-                        this.notifyPermissionObservers(
+                        console.log(
+                          "granting permission",
                           CommandPermissionRole[category as string]
                         );
                       }
@@ -201,6 +202,10 @@ export default class PermissionCommand
                           dbGuild.permissions = newPermissions;
                           await dbGuild.save();
 
+                          await this.notifyPermissionObservers(
+                            CommandPermissionRole[category as string]
+                          );
+
                           interaction.followUp({
                             content: `Removed permissions for **${category}** for role <@&${role}>`,
                             ephemeral: true,
@@ -211,10 +216,6 @@ export default class PermissionCommand
                             ephemeral: true,
                           });
                         }
-
-                        this.notifyPermissionObservers(
-                          CommandPermissionRole[category as string]
-                        );
                       }
 
                       break;
@@ -228,12 +229,16 @@ export default class PermissionCommand
     } as SlashCommandTemplate;
   }
 
-  notifyPermissionObservers(role: CommandPermissionRole) {
+  notifyPermissionObservers(role: CommandPermissionRole): Promise<any> {
     if (!role) {
       return;
     }
 
-    this._permissionObservers.forEach((o) => o.onPermissionChange(this, role));
+    return Promise.all(
+      this._permissionObservers.map(
+        async (o) => await o.onPermissionChange(this, role)
+      )
+    );
   }
 
   notifyObservers() {

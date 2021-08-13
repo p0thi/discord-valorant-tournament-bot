@@ -1,6 +1,10 @@
 import axios, { AxiosResponse } from "axios";
 import IUser, { IValoAccountInfo } from "../db/interfaces/IUser";
 import { v1 as uuidv1 } from "uuid";
+import DatabaseManager from "../db/DatabaseManager";
+import TournamentManager from "../managers/TournamentManager";
+import { Client } from "discord.js";
+import IGuild from "../db/interfaces/IGuild";
 
 const baseUrl = "https://api.henrikdev.xyz";
 export default class ValorantApi {
@@ -138,8 +142,10 @@ export default class ValorantApi {
 
   async refreshUser(
     dbUser: IUser,
-    region: string
+    region: string,
+    client: Client
   ): Promise<[RefreshUserResponseTypes, IApiAccountInfo]> {
+    console.log(1);
     const valoAccountInfo = dbUser[`${region}_account`] as IValoAccountInfo;
 
     if (!valoAccountInfo || !valoAccountInfo.puuid) {
@@ -160,6 +166,17 @@ export default class ValorantApi {
     valoAccountInfo.name = data.name;
     valoAccountInfo.tag = data.tag;
     await dbUser.save();
+
+    DatabaseManager.getInstance()
+      .getTournamentsWithUser(dbUser)
+      .then((tournaments) => {
+        tournaments.forEach((t) => {
+          const guild = client.guilds.cache.get(
+            (t.ownerDocument() as IGuild).discordId
+          );
+          new TournamentManager(guild, t).tournamentMessage.editAllMessages();
+        });
+      });
 
     return [RefreshUserResponseTypes.OK, data];
   }

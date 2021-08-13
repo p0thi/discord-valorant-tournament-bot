@@ -2,22 +2,22 @@ import { CommandInteraction, Guild } from "discord.js";
 import ValorantApi, {
   LinkUserResponseTypes,
   RefreshUserResponseTypes,
-} from "../../api/ValorantApi";
-import DatabaseManager from "../../db/DatabaseManager";
-import emojis from "../../util/emojis";
+} from "../../../api/ValorantApi";
+import DatabaseManager from "../../../db/DatabaseManager";
+import emojis from "../../../util/emojis";
 import CustomApplicationCommand, {
   CommandPermissionRole,
-} from "../CustomApplicationCommand";
-import { SlashCommandTemplate } from "../SlashCommandCreator";
-import AObservableCommand from "./AObservableCommand";
-import IGuildCommand from "./IGuildCommand";
+} from "../../CustomApplicationCommand";
+import { SlashCommandTemplate } from "../../SlashCommandCreator";
+import AObservableCommand from "../AObservableCommand";
+import IGuildSlashCommand from "../IGuildCommand";
 
 const dbManager = DatabaseManager.getInstance();
 const api = ValorantApi.getInstatnce();
 
 export default class ModerateCommand
   extends AObservableCommand
-  implements IGuildCommand
+  implements IGuildSlashCommand
 {
   private static _tournamentCommands: Map<Guild, ModerateCommand> = new Map();
   guild: Guild;

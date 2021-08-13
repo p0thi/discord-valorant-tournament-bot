@@ -1,9 +1,10 @@
+import { ApplicationCommand, Collection } from "discord.js";
 import { CommandPermissionRole } from "../CustomApplicationCommand";
-import IGuildCommand from "./IGuildCommand";
+import IGuildSlashCommand, { IGuildContextMenuCommand } from "./IGuildCommand";
 
 export default interface IPermissionChangeObserver {
   onPermissionChange(
-    command: IGuildCommand,
+    command: IGuildSlashCommand | IGuildContextMenuCommand,
     role: CommandPermissionRole
-  ): Promise<void>;
+  ): Promise<Collection<string, ApplicationCommand<{}>>>;
 }

@@ -5,24 +5,22 @@ import {
   TextChannel,
   UserResolvable,
 } from "discord.js";
-import DatabaseManager from "../../db/DatabaseManager";
-import IGuild, { ITournamentSetting } from "../../db/interfaces/IGuild";
-import InteractionHandler from "../../handlers/InteractionHandler";
-import TournamentManager from "../../managers/TournamentManager";
-import TournamentMessageManager from "../../managers/TournamentMessageManager";
+import DatabaseManager from "../../../db/DatabaseManager";
+import { ITournamentSetting } from "../../../db/interfaces/IGuild";
+import InteractionHandler from "../../../handlers/InteractionHandler";
+import TournamentManager from "../../../managers/TournamentManager";
 import CustomApplicationCommand, {
   CommandPermissionRole,
-} from "../CustomApplicationCommand";
-import { SlashCommandTemplate } from "../SlashCommandCreator";
-import AObservableCommand from "./AObservableCommand";
-import IGuildCommand from "./IGuildCommand";
-import IGuildCommandObserver from "./IGuildCommandObserver";
+} from "../../CustomApplicationCommand";
+import { SlashCommandTemplate } from "../../SlashCommandCreator";
+import AObservableCommand from "../AObservableCommand";
+import IGuildSlashCommand from "../IGuildCommand";
 
 const dbManager = DatabaseManager.getInstance();
 
 export default class TournamentCommand
   extends AObservableCommand
-  implements IGuildCommand
+  implements IGuildSlashCommand
 {
   private static _tournamentCommands: Map<Guild, TournamentCommand> = new Map();
 
@@ -376,62 +374,20 @@ export default class TournamentCommand
                   const tournament =
                     dbGuild.tournamentSettings.id(tournamentId);
 
-                  if (
-                    !dbUserToAdd[`${tournament.region}_account`] ||
-                    !dbUserToAdd[`${tournament.region}_account`].puuid
-                  ) {
-                    interaction.followUp({
-                      content:
-                        "That player does not have valorant account linked for that region.",
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-
-                  const [highestUserValoAccount] =
-                    dbManager.getDbUserMaxElo(dbUserToAdd);
-
-                  if (!highestUserValoAccount) {
-                    interaction.followUp({
-                      content: `:exclamation: At least one of <@${player}>s linked valorant accounts needs to have a rank.`,
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-
-                  if (tournament.participants.length >= 100) {
-                    interaction.followUp({
-                      content: "The tournament is full.",
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-
-                  if (tournament.participants.includes(dbUserToAdd.id)) {
-                    interaction.followUp({
-                      content: "That player is already in the tournament.",
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-
-                  tournament.participants.addToSet(dbUserToAdd);
                   const tournamentManager = new TournamentManager(
                     this.guild,
                     tournament
                   );
-                  await tournament.ownerDocument().save();
-
-                  tournamentManager.tournamentMessage.editAllMessages();
-
-                  tournamentManager.tournamentMessage
-                    .getThread()
-                    .then((thread) => {
-                      if (!thread) {
-                        return;
-                      }
-                      thread.members.add(player as Snowflake);
+                  const tryToAddUser = await tournamentManager.addUser(
+                    dbUserToAdd
+                  );
+                  if (tryToAddUser) {
+                    interaction.followUp({
+                      content: tryToAddUser[0],
+                      ephemeral: true,
                     });
+                    return;
+                  }
 
                   interaction.followUp({
                     content: `Player <@${dbUserToAdd.discordId}> added.`,

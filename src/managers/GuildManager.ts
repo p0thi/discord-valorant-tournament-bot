@@ -18,28 +18,6 @@ export default class GuildManager {
   async setupGuild(bot: Client, dbGuild: IGuild): Promise<void> {
     if (dbGuild.setupDone) return;
 
-    // bot.guilds.fetch(dbGuild.discordId).then((guild) => {
-    //   bot.application.commands.cache.forEach(async (command) => {
-    //     const customCommand = (
-    //       await SlashCommandCreator.getAllGuildCommands(guild)
-    //     ).map(c => c.generateTemplate()).find((i) => i.name === command.name);
-
-    //     if (customCommand.forOwner && !customCommand.defaultPermission) {
-    //       customCommand.permissions.add({
-    //         permissions: [
-    //           {
-    //             id: guild.ownerId,
-    //             type: "USER",
-    //             permission: true,
-    //           },
-    //         ],
-    //       });
-    //     }
-    //   });
-    //   dbGuild.setupDone = true;
-    //   dbGuild.save();
-    // });
-
     const guild = await bot.guilds.cache.get(dbGuild.discordId);
 
     if (guild.id === process.env.EMOJI_GUILD_ID) {

@@ -1,5 +1,8 @@
+import { DMChannel, User } from "discord.js";
 import mongoose, { Mongoose } from "mongoose";
-import IGuild from "./interfaces/IGuild";
+import Conversation from "../Conversation";
+import InteractionHandler from "../handlers/InteractionHandler";
+import IGuild, { ITournamentSetting } from "./interfaces/IGuild";
 import IUser, { IValoAccountInfo } from "./interfaces/IUser";
 import GuildModel from "./models/DatabaseGuild";
 
@@ -49,6 +52,21 @@ export default class DatabaseManager {
     return guild;
   }
 
+  async getTournamentsWithUser(dbUser: IUser): Promise<ITournamentSetting[]> {
+    const guilds = await GuildModel.find({
+      "tournamentSettings.participants": dbUser,
+    }).exec();
+    const result: ITournamentSetting[] = [];
+    for (const guild of guilds) {
+      for (const tournament of guild.tournamentSettings) {
+        if (tournament.participants.includes(dbUser.id)) {
+          result.push(tournament);
+        }
+      }
+    }
+    return result;
+  }
+
   getDbUserMaxElo(dbUser: IUser): [IValoAccountInfo, typeof regions[number]] {
     let currentResult;
     let currentResultRegion;
@@ -69,6 +87,61 @@ export default class DatabaseManager {
       }
     }
     return [currentResult, currentResultRegion];
+  }
+
+  removeUserFromTournament(
+    dbUser: IUser,
+    tournament: ITournamentSetting
+  ): string | void {
+    if (!tournament.participants.includes(dbUser.id)) {
+      return `<@${dbUser.discordId}> is not in this tournament`;
+    }
+
+    tournament.participants.remove(dbUser);
+    InteractionHandler.leaveGroups(dbUser, tournament);
+    return undefined;
+  }
+
+  addUserToTournament(
+    dbUser: IUser,
+    tournament: ITournamentSetting,
+    user?: User
+  ): string | void {
+    if (tournament.participants.length >= 100) {
+      return "The tournament is full.";
+    }
+
+    if (tournament.participants.includes(dbUser.id)) {
+      return `<@${dbUser.discordId}> is already in the tournament.`;
+    }
+
+    const [highestUserValoAccount] = this.getDbUserMaxElo(dbUser);
+    if (!highestUserValoAccount) {
+      return `At least one of <@${dbUser.discordId}>s linked valorant accounts needs to have a rank.`;
+    }
+
+    if (
+      dbUser[`${tournament.region}_account`] &&
+      dbUser[`${tournament.region}_account`].puuid
+    ) {
+      tournament.participants.addToSet(dbUser);
+      return undefined;
+    }
+
+    if (user) {
+      user.createDM().then(async (dmChannel) => {
+        const noValoAccountWarning = `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!`;
+        dmChannel.send({
+          content: `${noValoAccountWarning}`,
+        });
+        const conversation = await Conversation.createLinkConversation(
+          dmChannel as DMChannel,
+          user
+        );
+        conversation.start();
+      });
+    }
+    return `<@${dbUser.discordId}> does not have valorant account linked for that region.\nThe \`/link\` command can be used to link an account.`;
   }
 }
 

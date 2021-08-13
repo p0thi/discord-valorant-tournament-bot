@@ -13,7 +13,6 @@ import IUser from "../db/interfaces/IUser";
 import TournamentManager from "../managers/TournamentManager";
 import TournamentMessageManager from "../managers/TournamentMessageManager";
 
-const dbManager = DatabaseManager.getInstance();
 const idDegex = /([^#]*\S*)#{1}(\d+)_([a-f0-9]+)/s;
 
 export default class InteractionHandler {
@@ -29,6 +28,7 @@ export default class InteractionHandler {
 
   private async handle(interaction: Interaction): Promise<void> {
     if (interaction.isMessageComponent()) {
+      const dbManager = DatabaseManager.getInstance();
       // interaction as MessageComponentInteraction;
 
       if (interaction.channel.type === "DM") {
@@ -96,73 +96,24 @@ export default class InteractionHandler {
                 break;
               case "join_tournament":
                 {
-                  if (tournament.participants.indexOf(dbUser.id) !== -1) {
-                    interaction.followUp(
-                      ":exclamation: You're already in this tournament!"
-                    );
-                    return;
-                  }
-
-                  if (tournament.participants.length >= 100) {
-                    interaction.followUp(
-                      ":exclamation: This tournament is full!"
-                    );
-                    return;
-                  }
-
-                  const userValoAccountInfo =
-                    dbUser[`${tournament.region}_account`];
-
-                  if (!userValoAccountInfo) {
-                    const noValoAccountWarning = `You have not linked a Valorant account for the region **${tournament.region.toUpperCase()}** yet!`;
-                    interaction.followUp({
-                      content: `${noValoAccountWarning}\nUse the */link* command to do so, or write me a DM.`,
-                      ephemeral: true,
-                    });
-                    const dmChannel = await interaction.user.createDM();
-                    dmChannel.send({
-                      content: `${noValoAccountWarning}`,
-                    });
-                    const conversation =
-                      await Conversation.createLinkConversation(
-                        dmChannel as DMChannel,
-                        interaction.user
-                      );
-                    conversation.start();
-                    return;
-                  }
-
-                  const [highestUserValoAccount] =
-                    dbManager.getDbUserMaxElo(dbUser);
-
-                  if (!highestUserValoAccount) {
-                    interaction.followUp({
-                      content:
-                        ":exclamation: At least one of your linked valo accounts needs to have a rank.",
-                      ephemeral: true,
-                    });
-                    return;
-                  }
-
-                  tournament.participants.addToSet(dbUser);
-                  await tournament.ownerDocument().save();
                   const tournamentManager = new TournamentManager(
                     interaction.guild,
                     tournament
                   );
-                  tournamentManager.tournamentMessage.editAllMessages();
-
-                  tournamentManager.tournamentMessage
-                    .getThread()
-                    .then((thread) => {
-                      if (!thread) {
-                        return;
-                      }
-                      thread.members.add(interaction.user);
+                  const tryToAddUser = await tournamentManager.addUser(
+                    dbUser,
+                    interaction.user
+                  );
+                  if (tryToAddUser) {
+                    interaction.followUp({
+                      content: tryToAddUser[0],
+                      ephemeral: true,
                     });
+                    return;
+                  }
 
                   interaction.followUp({
-                    content: "You have joined the tournament!",
+                    content: `Player <@${dbUser.discordId}> added.`,
                     ephemeral: true,
                   });
                 }
@@ -289,6 +240,7 @@ export default class InteractionHandler {
                   }
 
                   await InteractionHandler.leaveGroups(dbUser, tournament);
+                  await tournament.ownerDocument().save();
 
                   interaction.followUp({
                     content:
@@ -314,16 +266,14 @@ export default class InteractionHandler {
     }
   }
 
-  static async leaveGroups(
+  static leaveGroups(
     dbUser: IUser,
     tournamentSettings: ITournamentSetting
-  ): Promise<void> {
+  ): void {
     tournamentSettings.premades = tournamentSettings.premades.filter(
       (p) =>
         p.target.toString() !== dbUser.id.toString() &&
         p.issuer.toString() !== dbUser.id.toString()
     ) as Types.DocumentArray<IPremade>;
-
-    await tournamentSettings.ownerDocument().save();
   }
 }

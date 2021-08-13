@@ -1,4 +1,4 @@
-import IGuildCommand from "./IGuildCommand";
+import IGuildSlashCommand from "./IGuildCommand";
 import IGuildCommandObserver from "./IGuildCommandObserver";
 
 export default abstract class AObservableCommand {

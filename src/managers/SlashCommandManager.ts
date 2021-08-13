@@ -1,99 +1,77 @@
 import {
-  ApplicationCommand,
-  ApplicationCommandPermissionData,
   Client,
   CommandInteraction,
   Guild,
+  MessageApplicationCommandData,
+  UserApplicationCommandData,
 } from "discord.js";
 import ValorantApi from "../api/ValorantApi";
 import DatabaseManager from "../db/DatabaseManager";
 import SlashCommandCreator, {
   SlashCommandTemplate,
 } from "../commands/SlashCommandCreator";
-import IGuildCommandObserver from "../commands/guild_commands/IGuildCommandObserver";
-import IGuildCommand from "../commands/guild_commands/IGuildCommand";
-import CustomApplicationCommand, {
-  CommandPermissionRole,
-} from "../commands/CustomApplicationCommand";
-import IPermissionChangeObserver from "../commands/guild_commands/IPermissionChangeObserver";
-import PermissionCommand from "../commands/guild_commands/PermissionCommand";
+import PermissionCommand from "../commands/guild_commands/slash_commands/PermissionCommand";
+import ACommandManager from "./ACommandManager";
 
-const api = ValorantApi.getInstatnce();
-const dbManager = DatabaseManager.getInstance();
+type ContextMenuItem =
+  | UserApplicationCommandData
+  | MessageApplicationCommandData;
 
-export default class SlashCommandManager
-  implements IGuildCommandObserver, IPermissionChangeObserver
-{
+export default class SlashCommandManager extends ACommandManager {
   bot: Client;
   constructor(bot) {
+    super();
     this.bot = bot;
   }
-  async onPermissionChange(
-    command: IGuildCommand,
-    role: CommandPermissionRole
-  ): Promise<void> {
-    const allGuildCommands = await SlashCommandCreator.getAllGuildCommands(
-      command.guild
-    );
 
-    const guildCommandTemplates = await Promise.all(
-      allGuildCommands.map(async (c) => await c.generateTemplate())
-    );
+  async getTemplates(): Promise<Map<Guild, SlashCommandTemplate[]>> {
+    const res: Map<Guild, SlashCommandTemplate[]> = new Map();
+    await Promise.all(
+      this.bot.guilds.cache.map(async (guild) => {
+        const guildSlashCommands =
+          await SlashCommandCreator.getAllGuildSlashCommands(guild);
 
-    console.log(
-      "role commands",
-      guildCommandTemplates.filter((c) => c.role === role)
-    );
-
-    guildCommandTemplates
-      .filter((c) => c.role === role)
-      .forEach((c) => {
-        SlashCommandManager.editGuildCommand(c, command.guild).then((a) => {
-          if (!a) {
-            console.log("Failed to edit command");
+        guildSlashCommands.forEach(async (commandTemplate) => {
+          commandTemplate.addObserver(this);
+          if (commandTemplate instanceof PermissionCommand) {
+            (commandTemplate as PermissionCommand).addPermissionObserver(this);
           }
         });
-      });
-  }
 
-  async commandChangeObserved(target: IGuildCommand) {
-    const template = await target.generateTemplate();
-    const guildCommand = target.guild.commands.cache.find(
-      (i) => i.name === template.name
+        const guildSlashCommandTemplates = await Promise.all(
+          guildSlashCommands.map(async (c) => await c.generateTemplate())
+        );
+        res.set(guild, guildSlashCommandTemplates);
+      })
     );
-    const customCommand = template.create();
-    customCommand.permissions?.add({
-      permissions: await CustomApplicationCommand.getPermissions(
-        customCommand.guild.id,
-        customCommand.role
-      ),
-    });
-    target.guild.commands.edit(guildCommand, customCommand);
+    return res;
   }
 
   async start() {
+    console.log("Starting slash command manager");
     this.bot.on("interactionCreate", this.handle);
-    const setGlobalCommands = await this.bot.application.commands.set(
-      SlashCommandCreator.globalCommands
-    );
+    this.bot.application.commands.set(SlashCommandCreator.globalCommands);
 
-    this.bot.guilds.cache.forEach(async (guild) => {
-      const guildCommands = await SlashCommandCreator.getAllGuildCommands(
-        guild
-      );
-      guildCommands.forEach(async (commandTemplate) => {
-        commandTemplate.addObserver(this);
-        if (commandTemplate instanceof PermissionCommand) {
-          (commandTemplate as PermissionCommand).addPermissionObserver(this);
-        }
-      });
+    // this.bot.guilds.cache.forEach(async (guild) => {
+    //   const guildSlashCommands =
+    //     await SlashCommandCreator.getAllGuildSlashCommands(guild);
+    //   guildSlashCommands.forEach(async (commandTemplate) => {
+    //     commandTemplate.addObserver(this);
+    //     if (commandTemplate instanceof PermissionCommand) {
+    //       (commandTemplate as PermissionCommand).addPermissionObserver(this);
+    //     }
+    //   });
 
-      const guildCommandTemplates = await Promise.all(
-        guildCommands.map(async (c) => await c.generateTemplate())
-      );
+    //   const guildSlashCommandTemplates = await Promise.all(
+    //     guildSlashCommands.map(async (c) => await c.generateTemplate())
+    //   );
+    //   console.log(guildSlashCommandTemplates.map((cmd) => cmd.name));
 
-      await SlashCommandManager.setGuildCommands(guildCommandTemplates, guild);
-    });
+    //   await SlashCommandManager.setGuildCommands(
+    //     guildSlashCommandTemplates,
+    //     guild
+    //   ).then(() => console.log("slash commands set"));
+    // });
   }
 
   async handle(interaction: CommandInteraction) {
@@ -106,7 +84,7 @@ export default class SlashCommandManager
       }
     }
 
-    for (const cmd of await SlashCommandCreator.getAllGuildCommands(
+    for (const cmd of await SlashCommandCreator.getAllGuildSlashCommands(
       interaction.guild
     )) {
       const template = await cmd.generateTemplate();
@@ -115,74 +93,5 @@ export default class SlashCommandManager
         return;
       }
     }
-  }
-
-  static async setGuildCommands(
-    templates: SlashCommandTemplate[],
-    guild: Guild
-  ) {
-    const customGuildCommands = templates.map((c) => c.create());
-
-    const setCommands = await guild.commands.set(customGuildCommands);
-
-    setCommands.forEach(async (cmd) => {
-      cmd.permissions.set({
-        permissions:
-          await SlashCommandManager._getPermissionForTemplateAndGuild(
-            templates.find((i) => i.name === cmd.name),
-            guild
-          ),
-      });
-    });
-  }
-
-  static async editGuildCommand(
-    template: SlashCommandTemplate,
-    guild: Guild
-  ): Promise<ApplicationCommand<{}>> {
-    const guildCommand = guild.commands.cache.find(
-      (c) => c.name === template.name
-    );
-
-    if (!guildCommand) {
-      return;
-    }
-    const customGuildCommand = template.create();
-
-    const resultCommand = await guild.commands.edit(
-      guildCommand,
-      customGuildCommand
-    );
-
-    const newPermissions =
-      await SlashCommandManager._getPermissionForTemplateAndGuild(
-        template,
-        guild
-      );
-    resultCommand.permissions.set({
-      permissions: newPermissions,
-    });
-    return resultCommand;
-  }
-
-  private static async _getPermissionForTemplateAndGuild(
-    template: SlashCommandTemplate,
-    guild: Guild
-  ): Promise<ApplicationCommandPermissionData[]> {
-    return [
-      ...(template.forOwner
-        ? [
-            {
-              id: guild.ownerId,
-              type: "USER",
-              permission: true,
-            } as ApplicationCommandPermissionData,
-          ]
-        : []),
-      ...(await CustomApplicationCommand.getPermissions(
-        guild.id,
-        template.role
-      )),
-    ] as ApplicationCommandPermissionData[];
   }
 }
