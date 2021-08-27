@@ -113,7 +113,7 @@ export default class InteractionHandler {
                   }
 
                   interaction.followUp({
-                    content: `Player <@${dbUser.discordId}> added.`,
+                    content: `Player <@!${dbUser.discordId}> added.`,
                     ephemeral: true,
                   });
                 }
@@ -207,7 +207,7 @@ export default class InteractionHandler {
 
                   interaction.followUp({
                     content: `You selected ${dbUsers
-                      .map((u) => `<@${u.discordId}>`)
+                      .map((u) => `<@!${u.discordId}>`)
                       .join(", ")} to be your premade(s) if possible.`,
                     ephemeral: true,
                   });

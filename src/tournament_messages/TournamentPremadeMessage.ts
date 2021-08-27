@@ -249,7 +249,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
                           )
                           .getValoEmoji(tournamentManager.guild.client)
                           .identifier
-                      }><@${p.participant.discordId}>`;
+                      }><@!${p.participant.discordId}>`;
                     })
                     .join(", "),
                 },
@@ -261,7 +261,7 @@ export default class TournamentPremadeMessage implements ITournamentMessage {
                   name: "Pending / Incomplete / Conflict",
                   value: nonAvailablePremades
                     .map((p) => {
-                      return `${PremateStatusEmoji.get(p.status)}<@${
+                      return `${PremateStatusEmoji.get(p.status)}<@!${
                         p.participant.discordId
                       }>`;
                     })

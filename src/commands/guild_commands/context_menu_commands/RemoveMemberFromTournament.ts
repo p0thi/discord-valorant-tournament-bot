@@ -103,7 +103,7 @@ export default class RemoveMemberFromTournament
               }
 
               interaction.followUp({
-                content: `Player <@${dbUser.discordId}> removed.`,
+                content: `Player <@!${dbUser.discordId}> removed.`,
                 ephemeral: true,
               });
               return;
@@ -141,7 +141,7 @@ export default class RemoveMemberFromTournament
                 );
                 console.log("removed", removed);
                 i.followUp({
-                  content: `Player <@${dbUser.discordId}> removed from ${
+                  content: `Player <@!${dbUser.discordId}> removed from ${
                     removed.filter((a) => !a).length
                   } tournaments.`,
                   ephemeral: true,

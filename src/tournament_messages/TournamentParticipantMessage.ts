@@ -50,7 +50,7 @@ export default class TournamentParticipantMessage
       if (embeds.length === 0) {
         embeds.push(
           new MessageEmbed({
-            title: `${populatedTournament.name} - Participants 1`,
+            title: `${populatedTournament.name} - Participants (Info: 1)`,
             description: `The paritcipants of the tournament.`,
             color: Util.resolveColor("#00e1ff"),
             fields: [],
@@ -61,7 +61,7 @@ export default class TournamentParticipantMessage
 
       if (lastEmbed.fields.length === 0) {
         lastEmbed.fields.push({
-          name: `Participants: ${fieldCounter++}`,
+          name: `Participants:`,
           value: "",
         } as EmbedField);
       }
@@ -71,7 +71,7 @@ export default class TournamentParticipantMessage
         DatabaseManager.getInstance().getDbUserMaxElo(participant);
       const regionValoAccountInfo =
         participant[`${populatedTournament.region}_account`];
-      const participantMention = `<@${participant.discordId}>`;
+      const participantMention = `<@!${participant.discordId}>`;
       const valoAccountInfoMention =
         region === populatedTournament.region
           ? `<:${
@@ -92,9 +92,9 @@ export default class TournamentParticipantMessage
       if (lastEmbed.length + nextMention.length > 6000) {
         const currentEmbedsCount = embeds.length;
         const newEmbed = new MessageEmbed({
-          title: `${populatedTournament.name} - Participants ${
+          title: `${populatedTournament.name} - Participants (Info ${
             currentEmbedsCount + 1
-          }`,
+          })`,
           description: `The participants of the tournament.`,
           color: Util.resolveColor("#00e1ff"),
           fields: [],
@@ -104,13 +104,13 @@ export default class TournamentParticipantMessage
 
         lastEmbed = embeds[embeds.length - 1];
         lastEmbed.fields.push({
-          name: `Participants: ${fieldCounter++}`,
+          name: `Participants:`,
           value: "",
         } as EmbedField);
         lastField = lastEmbed.fields[lastEmbed.fields.length - 1];
       } else if (lastField.value.length + nextMention.length > 1024) {
         lastEmbed.fields.push({
-          name: `Participants: ${fieldCounter++}`,
+          name: `Participants:`,
           value: "",
         } as EmbedField);
 
@@ -141,7 +141,7 @@ export default class TournamentParticipantMessage
     //                   dbManager.getDbUserMaxElo(user);
     //                 const regionValoAccountInfo =
     //                   user[`${populatedTournament.region}_account`];
-    //                 const participantMention = `<@${participant.id}>`;
+    //                 const participantMention = `<@!${participant.id}>`;
     //                 const valoAccountInfoMention =
     //                   region === populatedTournament.region
     //                     ? `<:${

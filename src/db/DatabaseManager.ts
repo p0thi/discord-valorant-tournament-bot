@@ -94,7 +94,7 @@ export default class DatabaseManager {
     tournament: ITournamentSetting
   ): string | void {
     if (!tournament.participants.includes(dbUser.id)) {
-      return `<@${dbUser.discordId}> is not in this tournament`;
+      return `<@!${dbUser.discordId}> is not in this tournament`;
     }
 
     tournament.participants.remove(dbUser);
@@ -112,12 +112,12 @@ export default class DatabaseManager {
     }
 
     if (tournament.participants.includes(dbUser.id)) {
-      return `<@${dbUser.discordId}> is already in the tournament.`;
+      return `<@!${dbUser.discordId}> is already in the tournament.`;
     }
 
     const [highestUserValoAccount] = this.getDbUserMaxElo(dbUser);
     if (!highestUserValoAccount) {
-      return `At least one of <@${dbUser.discordId}>s linked valorant accounts needs to have a rank.`;
+      return `At least one of <@!${dbUser.discordId}>s linked valorant accounts needs to have a rank.`;
     }
 
     if (
@@ -141,7 +141,7 @@ export default class DatabaseManager {
         conversation.start();
       });
     }
-    return `<@${dbUser.discordId}> does not have valorant account linked for that region.\nThe \`/link\` command can be used to link an account.`;
+    return `<@!${dbUser.discordId}> does not have valorant account linked for that region.\nThe \`/link\` command can be used to link an account.`;
   }
 }
 

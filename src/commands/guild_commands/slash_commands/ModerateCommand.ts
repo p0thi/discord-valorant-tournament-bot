@@ -160,14 +160,14 @@ export default class ModerateCommand
                             LinkUserResponseTypes.DIFFERENT_ACCOUNT_LINKED
                         ) {
                           interaction.followUp({
-                            content: `The user <@${targetDiscordId}> already has a valorant account in **${user.region.toUpperCase()}** linked to their discord account`,
+                            content: `The user <@!${targetDiscordId}> already has a valorant account in **${user.region.toUpperCase()}** linked to their discord account`,
                             ephemeral: true,
                           });
                           return;
                         }
 
                         interaction.followUp({
-                          content: `The valorant account **${user.name}#${user.tag}** has been linked to the discord user <@${targetDiscordId}>`,
+                          content: `The valorant account **${user.name}#${user.tag}** has been linked to the discord user <@!${targetDiscordId}>`,
                           ephemeral: true,
                         });
                       }
@@ -207,7 +207,7 @@ export default class ModerateCommand
                           }
                         }
                         interaction.followUp({
-                          content: `The valorant account for <@${targetDiscordId}> has been refreshed:\n**${
+                          content: `The valorant account for <@!${targetDiscordId}> has been refreshed:\n**${
                             user.name
                           }#${user.tag}** (${
                             user.currenttier !== 0

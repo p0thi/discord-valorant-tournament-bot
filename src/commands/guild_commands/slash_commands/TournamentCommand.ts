@@ -357,7 +357,7 @@ export default class TournamentCommand
                     });
 
                   interaction.followUp({
-                    content: `Player <@${dbUserToKick.discordId}> kicked.`,
+                    content: `Player <@!${dbUserToKick.discordId}> kicked.`,
                     ephemeral: true,
                   });
                 }
@@ -390,7 +390,7 @@ export default class TournamentCommand
                   }
 
                   interaction.followUp({
-                    content: `Player <@${dbUserToAdd.discordId}> added.`,
+                    content: `Player <@!${dbUserToAdd.discordId}> added.`,
                     ephemeral: true,
                   });
                 }

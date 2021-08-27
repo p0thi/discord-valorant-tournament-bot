@@ -121,7 +121,7 @@ export default class ShowMemberInfo
               }
             }
             resultMessageOption.content =
-              `Valorant accounts of <@${member.id}>` +
+              `Valorant accounts of <@!${member.id}>` +
               (resultMessageOption.embeds.length === 0
                 ? "\n\nNo accounts linked"
                 : "");

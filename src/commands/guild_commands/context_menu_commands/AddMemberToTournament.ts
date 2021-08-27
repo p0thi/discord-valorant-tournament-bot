@@ -99,7 +99,7 @@ export default class AddMemberToTournament
               }
 
               interaction.followUp({
-                content: `Player <@${dbUser.discordId}> added.`,
+                content: `Player <@!${dbUser.discordId}> added.`,
                 ephemeral: true,
               });
               return;
@@ -138,7 +138,7 @@ export default class AddMemberToTournament
 
                 console.log("added", added);
                 i.followUp({
-                  content: `Player <@${dbUser.discordId}> added to ${
+                  content: `Player <@!${dbUser.discordId}> added to ${
                     added.filter((a) => !a).length
                   } tournaments.`,
                   ephemeral: true,
