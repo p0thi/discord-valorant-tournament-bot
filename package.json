@@ -24,7 +24,7 @@
     "zlib-sync": "^0.1.7"
   },
   "devDependencies": {
-    "@types/node": "16.x",
+    "@types/node": "17.x",
     "reflect-metadata": "^0.1.13",
     "typescript": "^4.3.5"
   }
